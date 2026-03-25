@@ -27,3 +27,7 @@ def get_database() -> Database:
 
 def get_cpu_collection() -> Collection:
     return get_database()["cpus"]
+
+
+def get_daily_cpu_offer_collection() -> Collection:
+    return get_database()["daily_cpu_offers"]
