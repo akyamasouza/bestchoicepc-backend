@@ -24,12 +24,6 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2025",
-        "store_urls": {
-            "amazon": "https://www.amazon.com.br/dp/B0DVZSG8D5",
-            "kabum": "https://www.kabum.com.br/produto/708039/processador-amd-ryzen-9-9950x3d-4-4-ghz-max-boos-clock-ate-5-5-ghz-cache-144mb-16-nucleos-threads-32-am5-100-100000719wof",
-            "pichau": "https://www.pichau.com.br/processador-amd-ryzen-9-9950x3d-16-core-32-threads-4-3ghz-5-7ghz-turbo-cache-144mb-am5-100-100000719wof-br",
-            "terabyteshop": "https://www.terabyteshop.com.br/produto/34738/processador-amd-ryzen-9-9950x3d-43ghz-57ghz-turbo-16-cores-32-threads-am5-sem-cooler-100-100000719wof",
-        },
     },
     {
         "name": "AMD Ryzen 9 9950X",
@@ -56,12 +50,6 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q3 2024",
-        "store_urls": {
-            "amazon": "https://www.amazon.com.br/dp/B0D6NNRBGP",
-            "kabum": "https://www.kabum.com.br/produto/609951/processador-amd-ryzen-9-9950x-4-3-ghz-5-7-ghz-cache-64-mb-16-nucleos-32-threads-am5-100-100001277wof",
-            "pichau": "https://www.pichau.com.br/processador-amd-ryzen-9-9950x-16-core-32-threads-4-3ghz-5-7ghz-turbo-cache-80mb-am5-100-100001277wof",
-            "terabyteshop": "https://www.terabyteshop.com.br/produto/30488/processador-amd-ryzen-9-9950x-43ghz-57ghz-turbo-16-cores-32-threads-am5-sem-cooler-100-100001277wof",
-        },
     },
     {
         "name": "AMD Ryzen 9 9900X3D",
@@ -88,12 +76,6 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2025",
-        "store_urls": {
-            "amazon": "https://www.amazon.com.br/dp/B0DWGWN8GY",
-            "kabum": "https://www.kabum.com.br/produto/708038/processador-amd-ryzen-9-9900x3d-4-4-ghz-max-boos-clock-ate-5-5-ghz-cache-140mb-12-nucleos-threads-24-am5-100-100001368wof",
-            "pichau": "https://www.pichau.com.br/processador-amd-ryzen-9-9900x3d-12-core-24-threads-4-4ghz-5-5ghz-turbo-cache-140mb-am5-100-100001368wof",
-            "terabyteshop": "https://www.terabyteshop.com.br/produto/34734/processador-amd-ryzen-9-9900x3d-44ghz-55ghz-turbo-12-cores-24-threads-am5-sem-cooler-100-100001368wof",
-        },
     },
     {
         "name": "AMD Ryzen 7 9800X3D",
@@ -120,12 +102,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 5 7600X3D",
@@ -152,12 +130,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q3 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 9 7900X3D",
@@ -184,12 +158,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 9 285K",
@@ -216,12 +186,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 7 270K Plus",
@@ -248,12 +214,8 @@ CPUS = [
             "margin_for_error": "Medium",
         },
         "first_seen": "Q4 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 7 7800X3D",
@@ -280,12 +242,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q2 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 5 7500X3D",
@@ -312,12 +270,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 7 265K",
@@ -344,12 +298,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 9 7950X3D",
@@ -376,12 +326,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 9 285",
@@ -408,12 +354,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 7 265KF",
@@ -440,12 +382,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 5 245K",
@@ -472,12 +410,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 5 230F",
@@ -504,12 +438,8 @@ CPUS = [
             "margin_for_error": "High",
         },
         "first_seen": "Q4 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 5 5600X3D",
@@ -536,12 +466,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q3 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i9-14900KS",
@@ -568,12 +494,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 5 5500X3D",
@@ -600,12 +522,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q3 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 7 265F",
@@ -632,12 +550,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 5 245",
@@ -664,12 +578,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q2 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 5 235",
@@ -696,12 +606,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i9-13900KS",
@@ -728,12 +634,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 9 285T",
@@ -760,12 +662,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 7 5800X3D",
@@ -792,12 +690,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q2 2022",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i9-14900KF",
@@ -824,12 +718,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q3 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i9-14900K",
@@ -856,12 +746,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i7-14700K",
@@ -888,12 +774,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 5 245T",
@@ -920,12 +802,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q2 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i9-13900KF",
@@ -952,12 +830,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2022",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core Ultra 5 225",
@@ -984,12 +858,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 9 7900X",
@@ -1016,12 +886,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q3 2022",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 5 9600X",
@@ -1048,12 +914,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q3 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 9 7900",
@@ -1080,12 +942,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i5-14600K",
@@ -1112,12 +970,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i5-14600KF",
@@ -1144,12 +998,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 5 9600",
@@ -1176,12 +1026,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i9-13900F",
@@ -1208,12 +1054,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen AI Max 390",
@@ -1240,12 +1082,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i9-14900",
@@ -1272,12 +1110,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 5 9500F",
@@ -1304,12 +1138,8 @@ CPUS = [
             "margin_for_error": "High",
         },
         "first_seen": "Q4 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i7-14700F",
@@ -1336,12 +1166,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i7-13700K",
@@ -1368,12 +1194,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2022",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i9-13900",
@@ -1400,12 +1222,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2023",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i7-13700KF",
@@ -1432,12 +1250,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2022",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i5-13600K",
@@ -1464,12 +1278,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q3 2022",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i5-13600KF",
@@ -1496,12 +1306,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2022",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i7-14700",
@@ -1528,12 +1334,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 7 9850X3D",
@@ -1559,12 +1361,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2025",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 5 5600XT",
@@ -1591,12 +1389,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 9 5900X",
@@ -1623,12 +1417,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2020",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i7-12700K",
@@ -1655,12 +1445,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2021",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "Intel Core i5-12600K",
@@ -1687,12 +1473,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2021",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 5 5600",
@@ -1719,12 +1501,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q2 2022",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 9 5900XT",
@@ -1751,12 +1529,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q3 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 5 5600X",
@@ -1783,12 +1557,8 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q4 2020",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
     {
         "name": "AMD Ryzen 5 8600G",
@@ -1815,11 +1585,7 @@ CPUS = [
             "margin_for_error": "Low",
         },
         "first_seen": "Q1 2024",
-        "store_urls": {
-            "amazon": "",
-            "kabum": "",
-            "pichau": "",
-            "terabyteshop": "",
-        },
+
+
     },
 ]
