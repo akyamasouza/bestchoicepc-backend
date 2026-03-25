@@ -30,6 +30,11 @@ Variaveis usadas pelo backend:
 
 - `DB_URI`
 - `MONGODB_DATABASE`
+- `BUSINESS_TIMEZONE`
+- `TELEGRAM_API_ID`
+- `TELEGRAM_API_HASH`
+- `TELEGRAM_DEFAULT_CHANNEL`
+- `TELEGRAM_SESSION_PATH`
 
 ## Testar
 
@@ -41,4 +46,13 @@ pytest
 
 ```bash
 python -m app.scripts.seed_cpus
+```
+
+## Telegram
+
+```bash
+python -m app.scripts.telegram_login
+python -m app.scripts.telegram_search "Ryzen 7 9800X3D"
+python -m app.scripts.telegram_search "Kabum" --channel @pcbuildwizard --json
+python -m app.scripts.sync_daily_offers
 ```

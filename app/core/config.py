@@ -15,6 +15,26 @@ class Settings(BaseSettings):
         default="bestchoice_pc",
         validation_alias=AliasChoices("MONGODB_DATABASE", "MONGO_DATABASE"),
     )
+    business_timezone: str = Field(
+        default="America/Manaus",
+        validation_alias=AliasChoices("BUSINESS_TIMEZONE"),
+    )
+    telegram_api_id: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TELEGRAM_API_ID"),
+    )
+    telegram_api_hash: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TELEGRAM_API_HASH"),
+    )
+    telegram_default_channel: str | None = Field(
+        default="@pcbuildwizard",
+        validation_alias=AliasChoices("TELEGRAM_DEFAULT_CHANNEL"),
+    )
+    telegram_session_path: str = Field(
+        default=".telegram/session",
+        validation_alias=AliasChoices("TELEGRAM_SESSION_PATH"),
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
