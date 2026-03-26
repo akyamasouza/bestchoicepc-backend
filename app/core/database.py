@@ -29,5 +29,9 @@ def get_cpu_collection() -> Collection:
     return get_database()["cpus"]
 
 
+def get_gpu_collection() -> Collection:
+    return get_database()["gpus"]
+
+
 def get_daily_offer_collection() -> Collection:
     return get_database()["daily_offers"]

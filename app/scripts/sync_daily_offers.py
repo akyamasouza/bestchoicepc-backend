@@ -3,18 +3,28 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from app.core.database import close_mongo_client, get_cpu_collection, get_daily_offer_collection
+from app.core.database import close_mongo_client, get_cpu_collection, get_daily_offer_collection, get_gpu_collection
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.services.daily_offer_sync import DailyOfferSyncService
 from app.services.telegram_offer_parser import TelegramOfferParser
 from app.services.telegram_search import TelegramChannelSearchService
 
 
-async def run(channel: str | None = None, limit: int = 1) -> int:
+def get_catalog_collection(entity_type: str):
+    if entity_type == "cpu":
+        return get_cpu_collection()
+    if entity_type == "gpu":
+        return get_gpu_collection()
+
+    raise RuntimeError(f"Tipo de entidade nao suportado: {entity_type}")
+
+
+async def run(entity_type: str = "cpu", channel: str | None = None, limit: int = 1) -> int:
     telegram_search_service = TelegramChannelSearchService()
     daily_offer_repository = DailyOfferRepository(get_daily_offer_collection())
     sync_service = DailyOfferSyncService(
-        cpu_collection=get_cpu_collection(),
+        catalog_collection=get_catalog_collection(entity_type),
+        entity_type=entity_type,
         daily_offer_repository=daily_offer_repository,
         telegram_search_service=telegram_search_service,
         offer_parser=TelegramOfferParser(),
@@ -41,7 +51,13 @@ async def run(channel: str | None = None, limit: int = 1) -> int:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Sincroniza ofertas diarias de CPUs a partir do Telegram.")
+    parser = argparse.ArgumentParser(description="Sincroniza ofertas diarias por tipo de entidade a partir do Telegram.")
+    parser.add_argument(
+        "--entity-type",
+        choices=["cpu", "gpu"],
+        default="cpu",
+        help="Tipo de entidade a sincronizar. O padrao e cpu.",
+    )
     parser.add_argument("--channel", help="Canal do Telegram. Se omitido, usa TELEGRAM_DEFAULT_CHANNEL.")
     parser.add_argument(
         "--limit",
@@ -56,7 +72,7 @@ def main() -> None:
     args = parse_args()
 
     try:
-        raise SystemExit(asyncio.run(run(channel=args.channel, limit=args.limit)))
+        raise SystemExit(asyncio.run(run(entity_type=args.entity_type, channel=args.channel, limit=args.limit)))
     finally:
         close_mongo_client()
 

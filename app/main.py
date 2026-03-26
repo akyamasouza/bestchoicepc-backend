@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.core.database import close_mongo_client
 from app.routes.cpus import router as cpus_router
 from app.routes.daily_offers import router as daily_offers_router
+from app.routes.gpus import router as gpus_router
 
 
 @asynccontextmanager
@@ -16,6 +17,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.include_router(cpus_router)
+app.include_router(gpus_router)
 app.include_router(daily_offers_router)
 
 
