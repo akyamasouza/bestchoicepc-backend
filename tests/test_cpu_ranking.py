@@ -96,7 +96,7 @@ def test_cpu_ranking_allows_ryzen_5_x3d_to_surpass_non_x3d_sibling_class() -> No
     )
 
     assert rankings["5500x3d"].game_percentile > rankings["5600"].game_percentile
-    assert rankings["5500x3d"].game_percentile == 62.16
+    assert rankings["5500x3d"].performance_tier == "D"
     assert rankings["5600"].game_percentile == 58.1
 
 
@@ -118,9 +118,39 @@ def test_cpu_ranking_applies_ryzen_generation_and_variant_bonuses() -> None:
         ]
     )
 
-    assert rankings["7700x"].game_percentile == 95.29
-    assert rankings["7700x"].performance_tier == "A"
-    assert rankings["5700x"].game_percentile == 66.85
+    assert rankings["7700x"].game_percentile == 91.61
+    assert rankings["7700x"].performance_tier == "B"
+    assert rankings["5700x"].game_percentile == 65.55
+    assert rankings["5700x"].performance_tier == "C"
+
+
+def test_cpu_ranking_keeps_ryzen_x3d_above_nearby_non_x3d_models_without_overinflating_scores() -> None:
+    rankings = CpuRankingService().build_rankings(
+        [
+            CpuRankingEntry(
+                identifier="5500x3d",
+                name="AMD Ryzen 5 5500X3D",
+                benchmark_score=2952,
+                techpowerup_score=None,
+            ),
+            CpuRankingEntry(
+                identifier="5700",
+                name="AMD Ryzen 7 5700",
+                benchmark_score=3294,
+                techpowerup_score=None,
+            ),
+            CpuRankingEntry(
+                identifier="5700x",
+                name="AMD Ryzen 7 5700X",
+                benchmark_score=3387,
+                techpowerup_score=64.9,
+            ),
+        ]
+    )
+
+    assert rankings["5500x3d"].game_percentile > rankings["5700"].game_percentile
+    assert rankings["5500x3d"].game_percentile < rankings["5700x"].game_percentile
+    assert rankings["5500x3d"].performance_tier == "D"
     assert rankings["5700x"].performance_tier == "C"
 
 

@@ -30,6 +30,12 @@ class RyzenCpuInfo:
     variant: str
 
 
+@dataclass(frozen=True, slots=True)
+class RyzenX3DGuardrailConfig:
+    comparable_benchmark_delta: float = 0.12
+    superiority_margin: float = 0.01
+
+
 class CpuRankingStrategy(Protocol):
     def build(
         self,
@@ -125,7 +131,8 @@ class CpuRankingService:
                 rankings[entry.identifier] = ranking
                 break
 
-        return _apply_ryzen_family_constraints(entries=entries, rankings=rankings)
+        rankings = _apply_ryzen_family_constraints(entries=entries, rankings=rankings)
+        return _apply_ryzen_x3d_generation_guardrails(entries=entries, rankings=rankings)
 
 
 def cpu_tier_for_relative_performance(score: float) -> str:
@@ -187,25 +194,17 @@ def _parse_ryzen_cpu_info(name: str) -> RyzenCpuInfo | None:
 
 
 def _ryzen_generation_bonus(generation: int) -> float:
-    if generation >= 9000:
-        return 0.04
-    if generation >= 7000:
-        return 0.02
     return 0.0
 
 
 def _ryzen_variant_bonus(info: RyzenCpuInfo) -> float:
     if info.variant == "x3d":
-        return {
-            5: 0.18,
-            7: 0.15,
-            9: 0.10,
-        }.get(info.tier, 0.12)
+        return 0.07
 
     if info.variant == "x":
-        return 0.03
+        return 0.01
     if info.variant == "g":
-        return -0.05
+        return -0.02
     return 0.0
 
 
@@ -213,14 +212,20 @@ def _anchor_sort_key(*, candidate: CpuRankingEntry, entry: CpuRankingEntry) -> t
     candidate_info = _parse_ryzen_cpu_info(candidate.name)
     entry_info = _parse_ryzen_cpu_info(entry.name)
 
-    architecture_penalty = 3
+    architecture_penalty = 4
     if candidate_info is not None and entry_info is not None:
-        if candidate_info.tier == entry_info.tier and candidate_info.generation == entry_info.generation:
+        if (
+            candidate_info.variant == entry_info.variant
+            and candidate_info.tier == entry_info.tier
+            and candidate_info.generation == entry_info.generation
+        ):
             architecture_penalty = 0
-        elif candidate_info.tier == entry_info.tier:
+        elif candidate_info.variant == entry_info.variant and candidate_info.generation == entry_info.generation:
             architecture_penalty = 1
-        else:
+        elif candidate_info.tier == entry_info.tier and candidate_info.generation == entry_info.generation:
             architecture_penalty = 2
+        elif candidate_info.generation == entry_info.generation:
+            architecture_penalty = 3
 
     return (
         architecture_penalty,
@@ -278,5 +283,65 @@ def _apply_ryzen_family_constraints(
             )
             adjusted_rankings[higher_identifier] = family[higher_variant][1]
             adjusted_rankings[lower_identifier] = lower_ranking
+
+    return adjusted_rankings
+
+
+def _apply_ryzen_x3d_generation_guardrails(
+    *,
+    entries: list[CpuRankingEntry],
+    rankings: dict[str, BenchmarkRanking],
+    config: RyzenX3DGuardrailConfig = RyzenX3DGuardrailConfig(),
+) -> dict[str, BenchmarkRanking]:
+    adjusted_rankings = dict(rankings)
+    parsed_entries: dict[str, RyzenCpuInfo] = {}
+
+    for entry in entries:
+        info = _parse_ryzen_cpu_info(entry.name)
+        if info is not None:
+            parsed_entries[entry.identifier] = info
+
+    for entry in entries:
+        ranking = adjusted_rankings.get(entry.identifier)
+        if ranking is None or entry.benchmark_score is None:
+            continue
+
+        info = parsed_entries.get(entry.identifier)
+        if info is None or info.variant != "x3d":
+            continue
+
+        comparable_scores: list[float] = []
+        maximum_comparable_benchmark = entry.benchmark_score * (1 + config.comparable_benchmark_delta)
+
+        for candidate in entries:
+            if candidate.identifier == entry.identifier or candidate.benchmark_score is None:
+                continue
+
+            candidate_info = parsed_entries.get(candidate.identifier)
+            candidate_ranking = adjusted_rankings.get(candidate.identifier)
+            if (
+                candidate_info is None
+                or candidate_ranking is None
+                or candidate_info.generation != info.generation
+                or candidate_info.variant == "x3d"
+                or candidate.benchmark_score < entry.benchmark_score
+                or candidate.benchmark_score > maximum_comparable_benchmark
+            ):
+                continue
+
+            comparable_scores.append(candidate_ranking.game_percentile)
+
+        if not comparable_scores:
+            continue
+
+        minimum_score = round(max(comparable_scores) * (1 + config.superiority_margin), 2)
+        if ranking.game_percentile >= minimum_score:
+            continue
+
+        adjusted_rankings[entry.identifier] = BenchmarkRanking(
+            game_score=ranking.game_score,
+            game_percentile=minimum_score,
+            performance_tier=cpu_tier_for_relative_performance(minimum_score),
+        )
 
     return adjusted_rankings
