@@ -260,3 +260,40 @@ def test_sync_persists_gpu_offers_with_gpu_entity_type() -> None:
         "entity_sku": "geforce-rtx-5090",
         "store": "kabum",
     }
+
+
+def test_sync_rejects_gpu_variant_mismatch_before_persisting() -> None:
+    catalog_collection = FakeCatalogCollection([{"sku": "geforce-rtx-5070", "name": "GeForce RTX 5070"}])
+    offer_collection = FakeOfferCollection()
+    repository = DailyOfferRepository(offer_collection)
+    telegram_search_service = FakeTelegramSearchService(
+        {
+            "GeForce RTX 5070": [
+                {
+                    "id": 883615,
+                    "date_iso": "2026-03-25T21:01:41+00:00",
+                    "text": (
+                        "Placa de Video PNY GeForce RTX 5070 Ti OC 16GB, 16 GB GDDR7, PCIe x16 5.0 "
+                        "R$ 6.599,00 Loja: MA InfoStore https://www.mainfostore.com.br/produto/abc"
+                    ),
+                    "url": "https://t.me/pcbuildwizard/883615",
+                }
+            ]
+        }
+    )
+    service = DailyOfferSyncService(
+        catalog_collection=catalog_collection,
+        entity_type="gpu",
+        daily_offer_repository=repository,
+        telegram_search_service=telegram_search_service,
+        offer_parser=TelegramOfferParser(),
+    )
+
+    result = asyncio.run(service.sync())
+
+    assert result.processed == 1
+    assert result.matched == 1
+    assert result.persisted == 0
+    assert result.skipped == 1
+    assert result.errors == ["geforce-rtx-5070: mensagem rejeitada por discriminadores conflitantes: ti"]
+    assert offer_collection.operations == []

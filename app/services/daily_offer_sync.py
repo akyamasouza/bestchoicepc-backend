@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any, Protocol
 
 from pymongo.collection import Collection
 
 from app.repositories.daily_offer_repository import DailyOfferRepository
+from app.services.entity_matcher import EntityMatcher
 from app.services.telegram_offer_parser import TelegramOfferParser
 
 
@@ -37,12 +38,14 @@ class DailyOfferSyncService:
         daily_offer_repository: DailyOfferRepository,
         telegram_search_service: TelegramSearchServiceProtocol,
         offer_parser: TelegramOfferParser,
+        entity_matcher: EntityMatcher | None = None,
     ) -> None:
         self.catalog_collection = catalog_collection
         self.entity_type = entity_type
         self.daily_offer_repository = daily_offer_repository
         self.telegram_search_service = telegram_search_service
         self.offer_parser = offer_parser
+        self.entity_matcher = entity_matcher or EntityMatcher()
 
     async def sync(self, *, channel: str | None = None, limit: int = 1) -> DailyOfferSyncResult:
         result = DailyOfferSyncResult()
@@ -84,6 +87,12 @@ class DailyOfferSyncService:
             except ValueError as exc:
                 result.skipped += 1
                 result.errors.append(f"{entity_sku}: {exc}")
+                continue
+
+            mismatch_reason = self.entity_matcher.mismatch_reason(entity_name=entity_name, raw_text=offer.raw_text)
+            if mismatch_reason is not None:
+                result.skipped += 1
+                result.errors.append(f"{entity_sku}: {mismatch_reason}")
                 continue
 
             self.daily_offer_repository.upsert(offer)
