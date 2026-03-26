@@ -8,6 +8,12 @@ class CpuBenchmark(BaseModel):
     margin_for_error: str | None = None
 
 
+class CpuRanking(BaseModel):
+    game_score: float | None = None
+    game_percentile: float | None = None
+    performance_tier: str | None = None
+
+
 class CpuListItem(BaseModel):
     id: str
     name: str
@@ -16,3 +22,4 @@ class CpuListItem(BaseModel):
     cores: int | None = None
     threads: int | None = None
     benchmark: CpuBenchmark | None = None
+    ranking: CpuRanking | None = None

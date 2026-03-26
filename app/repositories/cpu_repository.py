@@ -2,7 +2,7 @@ from typing import Any
 
 from pymongo.collection import Collection
 
-from app.schemas.cpu import CpuBenchmark, CpuListItem
+from app.schemas.cpu import CpuBenchmark, CpuListItem, CpuRanking
 
 
 class CpuRepository:
@@ -19,6 +19,7 @@ class CpuRepository:
                 "cores": 1,
                 "threads": 1,
                 "benchmark": 1,
+                "ranking": 1,
             },
         ).sort("name", 1)
 
@@ -33,6 +34,7 @@ class CpuRepository:
             cores=document.get("cores"),
             threads=document.get("threads"),
             benchmark=self._to_benchmark(document.get("benchmark")),
+            ranking=self._to_ranking(document.get("ranking")),
         )
 
     def _to_benchmark(self, benchmark: dict[str, Any] | None) -> CpuBenchmark | None:
@@ -44,4 +46,14 @@ class CpuRepository:
             single_thread_rating=benchmark.get("single_thread_rating"),
             samples=benchmark.get("samples"),
             margin_for_error=benchmark.get("margin_for_error"),
+        )
+
+    def _to_ranking(self, ranking: dict[str, Any] | None) -> CpuRanking | None:
+        if ranking is None:
+            return None
+
+        return CpuRanking(
+            game_score=ranking.get("game_score"),
+            game_percentile=ranking.get("game_percentile"),
+            performance_tier=ranking.get("performance_tier"),
         )

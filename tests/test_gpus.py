@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.routes.gpus import get_gpu_repository
-from app.schemas.gpu import GpuBenchmark, GpuListItem
+from app.schemas.gpu import GpuBenchmark, GpuListItem, GpuRanking
 
 
 class FakeGpuRepository:
@@ -25,6 +25,11 @@ class FakeGpuRepository:
                     g3d_mark=38975,
                     g2d_mark=1413,
                     samples=8123,
+                ),
+                ranking=GpuRanking(
+                    game_score=38975,
+                    game_percentile=100.0,
+                    performance_tier="S",
                 ),
             )
         ]
@@ -80,6 +85,11 @@ def test_list_gpus() -> None:
                 "g2d_mark": 1413,
                 "samples": 8123,
             },
+            "ranking": {
+                "game_score": 38975.0,
+                "game_percentile": 100.0,
+                "performance_tier": "S",
+            },
         }
     ]
 
@@ -105,6 +115,11 @@ def test_gpu_repository_maps_documents() -> None:
                         "g2d_mark": 1413,
                         "samples": 8123,
                     },
+                    "ranking": {
+                        "game_score": 38975,
+                        "game_percentile": 100.0,
+                        "performance_tier": "S",
+                    },
                 }
             ]
         )
@@ -116,3 +131,5 @@ def test_gpu_repository_maps_documents() -> None:
     assert [gpu.name for gpu in result] == ["GeForce RTX 5090"]
     assert result[0].benchmark is not None
     assert result[0].benchmark.g3d_mark == 38975
+    assert result[0].ranking is not None
+    assert result[0].ranking.performance_tier == "S"

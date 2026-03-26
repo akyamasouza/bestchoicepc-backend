@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.routes.cpus import get_cpu_repository
-from app.schemas.cpu import CpuBenchmark, CpuListItem
+from app.schemas.cpu import CpuBenchmark, CpuListItem, CpuRanking
 
 
 class FakeCpuRepository:
@@ -24,6 +24,11 @@ class FakeCpuRepository:
                     samples=4200,
                     margin_for_error="Low",
                 ),
+                ranking=CpuRanking(
+                    game_score=4012,
+                    game_percentile=95.4,
+                    performance_tier="S",
+                ),
             ),
             CpuListItem(
                 id="cpu-2",
@@ -37,6 +42,11 @@ class FakeCpuRepository:
                     single_thread_rating=4729,
                     samples=5519,
                     margin_for_error="Low",
+                ),
+                ranking=CpuRanking(
+                    game_score=4729,
+                    game_percentile=100.0,
+                    performance_tier="S",
                 ),
             ),
         ]
@@ -90,6 +100,11 @@ def test_list_cpus() -> None:
                 "samples": 4200,
                 "margin_for_error": "Low",
             },
+            "ranking": {
+                "game_score": 4012.0,
+                "game_percentile": 95.4,
+                "performance_tier": "S",
+            },
         },
         {
             "id": "cpu-2",
@@ -103,6 +118,11 @@ def test_list_cpus() -> None:
                 "single_thread_rating": 4729,
                 "samples": 5519,
                 "margin_for_error": "Low",
+            },
+            "ranking": {
+                "game_score": 4729.0,
+                "game_percentile": 100.0,
+                "performance_tier": "S",
             },
         },
     ]
@@ -127,6 +147,11 @@ def test_cpu_repository_maps_documents() -> None:
                         "samples": 5519,
                         "margin_for_error": "Low",
                     },
+                    "ranking": {
+                        "game_score": 4729,
+                        "game_percentile": 100.0,
+                        "performance_tier": "S",
+                    },
                 },
                 {
                     "_id": 1,
@@ -140,6 +165,11 @@ def test_cpu_repository_maps_documents() -> None:
                         "single_thread_rating": 4012,
                         "samples": 4200,
                         "margin_for_error": "Low",
+                    },
+                    "ranking": {
+                        "game_score": 4012,
+                        "game_percentile": 95.4,
+                        "performance_tier": "S",
                     },
                 },
             ]
@@ -155,3 +185,5 @@ def test_cpu_repository_maps_documents() -> None:
     ]
     assert result[0].benchmark is not None
     assert result[0].benchmark.multithread_rating == 34321
+    assert result[0].ranking is not None
+    assert result[0].ranking.performance_tier == "S"

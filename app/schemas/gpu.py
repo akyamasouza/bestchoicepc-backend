@@ -7,6 +7,12 @@ class GpuBenchmark(BaseModel):
     samples: int | None = None
 
 
+class GpuRanking(BaseModel):
+    game_score: float | None = None
+    game_percentile: float | None = None
+    performance_tier: str | None = None
+
+
 class GpuListItem(BaseModel):
     id: str
     name: str
@@ -18,3 +24,4 @@ class GpuListItem(BaseModel):
     max_tdp_w: int | None = None
     category: str | None = None
     benchmark: GpuBenchmark | None = None
+    ranking: GpuRanking | None = None
