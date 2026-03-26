@@ -1,6 +1,7 @@
 from typing import Any
 
 from app.data.gpus import GPUS
+from app.data.gpus_tomshardware import resolve_tomshardware_gpu_1080p_medium_score
 from app.scripts.seed_gpus import seed_gpus
 
 
@@ -39,5 +40,17 @@ def test_seed_gpus_upserts_by_sku(monkeypatch) -> None:
     assert collection.indexes == [([("sku", 1)], True)]
     assert len(collection.operations) == len(GPUS)
     assert collection.operations[0][0] == {"sku": GPUS[0]["sku"]}
-    assert collection.operations[0][1] == {"$set": GPUS[0]}
+    assert collection.operations[0][1] == {
+        "$set": {
+            **GPUS[0],
+            "benchmark": {
+                **GPUS[0]["benchmark"],
+                "tomshardware_relative_performance_1080p_medium": resolve_tomshardware_gpu_1080p_medium_score(
+                    GPUS[0]["name"],
+                    GPUS[0].get("other_names"),
+                    GPUS[0]["sku"],
+                ),
+            },
+        }
+    }
     assert collection.operations[0][2] is True

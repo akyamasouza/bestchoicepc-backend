@@ -5,8 +5,8 @@ import argparse
 from pymongo.collection import Collection
 
 from app.core.database import get_cpu_collection, get_gpu_collection
-from app.services.benchmark_ranking import BenchmarkRankingService
 from app.services.cpu_ranking import CpuRankingEntry, CpuRankingService
+from app.services.gpu_ranking import GpuRankingEntry, GpuRankingService
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -20,59 +20,12 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def recalculate_collection(
-    *,
-    collection: Collection,
-    score_field: str,
-    label: str,
-) -> tuple[int, int]:
-    entries: list[tuple[str, float]] = []
-    missing_ids: list[object] = []
-
-    for document in collection.find({}, {"benchmark": 1}):
-        benchmark = document.get("benchmark") or {}
-        score = _resolve_score(benchmark, score_field)
-        if score is None:
-            missing_ids.append(document["_id"])
-            continue
-
-        entries.append((str(document["_id"]), float(score)))
-
-    rankings = BenchmarkRankingService().build_rankings(entries)
-    updated = 0
-
-    for document_id, ranking in rankings.items():
-        collection.update_one(
-            {"_id": _coerce_id(collection, document_id)},
-            {
-                "$set": {
-                    "ranking": {
-                        "game_score": ranking.game_score,
-                        "game_percentile": ranking.game_percentile,
-                        "performance_tier": ranking.performance_tier,
-                    }
-                }
-            },
-        )
-        updated += 1
-
-    if missing_ids:
-        collection.update_many({"_id": {"$in": missing_ids}}, {"$unset": {"ranking": ""}})
-
-    print(f"{label}: {updated} documento(s) atualizado(s), {len(missing_ids)} sem score.")
-    return updated, len(missing_ids)
-
-
 def run(entity_type: str = "all") -> None:
     if entity_type in {"cpu", "all"}:
         recalculate_cpu_collection(collection=get_cpu_collection())
 
     if entity_type in {"gpu", "all"}:
-        recalculate_collection(
-            collection=get_gpu_collection(),
-            score_field="g3d_mark",
-            label="gpu",
-        )
+        recalculate_gpu_collection(collection=get_gpu_collection())
 
 
 def recalculate_cpu_collection(*, collection: Collection) -> tuple[int, int]:
@@ -126,6 +79,61 @@ def recalculate_cpu_collection(*, collection: Collection) -> tuple[int, int]:
         f"{len(missing_ids)} sem score, "
         f"{sum(entry.techpowerup_score is not None for entry in entries)} com TechPowerUp, "
         f"{sum(entry.techpowerup_score is None for entry in entries)} estimados por benchmark."
+    )
+    return updated, len(missing_ids)
+
+
+def recalculate_gpu_collection(*, collection: Collection) -> tuple[int, int]:
+    entries: list[GpuRankingEntry] = []
+    missing_ids: list[object] = []
+
+    for document in collection.find({}, {"name": 1, "benchmark": 1}):
+        benchmark = document.get("benchmark") or {}
+        document_id = str(document["_id"])
+        name = str(document.get("name") or document_id)
+        benchmark_score = _resolve_score(benchmark, "g3d_mark")
+        tomshardware_score = _resolve_score(benchmark, "tomshardware_relative_performance_1080p_medium")
+
+        if benchmark_score is None and tomshardware_score is None:
+            missing_ids.append(document["_id"])
+            continue
+
+        entries.append(
+            GpuRankingEntry(
+                identifier=document_id,
+                name=name,
+                benchmark_score=float(benchmark_score) if benchmark_score is not None else None,
+                tomshardware_score=float(tomshardware_score) if tomshardware_score is not None else None,
+            )
+        )
+
+    rankings = GpuRankingService().build_rankings(entries)
+
+    updated = 0
+    for document_id, ranking in rankings.items():
+        collection.update_one(
+            {"_id": _coerce_id(collection, document_id)},
+            {
+                "$set": {
+                    "ranking": {
+                        "game_score": ranking.game_score,
+                        "game_percentile": ranking.game_percentile,
+                        "performance_tier": ranking.performance_tier,
+                    }
+                }
+            },
+        )
+        updated += 1
+
+    if missing_ids:
+        collection.update_many({"_id": {"$in": missing_ids}}, {"$unset": {"ranking": ""}})
+
+    print(
+        "gpu: "
+        f"{updated} documento(s) atualizado(s), "
+        f"{len(missing_ids)} sem score, "
+        f"{sum(entry.tomshardware_score is not None for entry in entries)} com Tom's Hardware, "
+        f"{sum(entry.tomshardware_score is None for entry in entries)} estimados por benchmark."
     )
     return updated, len(missing_ids)
 

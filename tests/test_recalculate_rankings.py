@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.scripts.recalculate_rankings import recalculate_cpu_collection
+from app.scripts.recalculate_rankings import recalculate_cpu_collection, recalculate_gpu_collection
 
 
 class FakeCollection:
@@ -71,6 +71,60 @@ def test_recalculate_cpu_collection_unsets_missing_rankings() -> None:
     assert collection.unset_queries == [
         (
             {"_id": {"$in": ["cpu-1"]}},
+            {"$unset": {"ranking": ""}},
+        )
+    ]
+
+
+def test_recalculate_gpu_collection_uses_tomshardware_score_and_benchmark_estimates() -> None:
+    collection = FakeCollection(
+        [
+            {
+                "_id": 1,
+                "name": "GeForce RTX 5090",
+                "benchmark": {
+                    "tomshardware_relative_performance_1080p_medium": 100.0,
+                    "g3d_mark": 38975,
+                },
+            },
+            {
+                "_id": 2,
+                "name": "GeForce RTX 4090",
+                "benchmark": {
+                    "g3d_mark": 38071,
+                },
+            },
+        ]
+    )
+
+    updated, missing = recalculate_gpu_collection(collection=collection)
+
+    assert updated == 2
+    assert missing == 0
+
+    rankings = {query["_id"]: update["$set"]["ranking"] for query, update in collection.updated}
+    assert rankings[1]["game_score"] == 38975.0
+    assert rankings[1]["game_percentile"] == 100.0
+    assert rankings[1]["performance_tier"] == "S"
+    assert rankings[2]["game_score"] == 38071.0
+    assert rankings[2]["game_percentile"] == 97.68
+    assert rankings[2]["performance_tier"] == "S"
+
+
+def test_recalculate_gpu_collection_unsets_missing_rankings() -> None:
+    collection = FakeCollection(
+        [
+            {"_id": "gpu-1", "benchmark": {}},
+        ]
+    )
+
+    updated, missing = recalculate_gpu_collection(collection=collection)
+
+    assert updated == 0
+    assert missing == 1
+    assert collection.unset_queries == [
+        (
+            {"_id": {"$in": ["gpu-1"]}},
             {"$unset": {"ranking": ""}},
         )
     ]
