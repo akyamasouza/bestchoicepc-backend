@@ -24,3 +24,19 @@ class CpuListItem(BaseModel):
     threads: int | None = None
     benchmark: CpuBenchmark | None = None
     ranking: CpuRanking | None = None
+
+
+class CpuRankingListItem(BaseModel):
+    id: str
+    name: str
+    sku: str
+    brand: str
+    release_year: int | None = None
+    ranking: CpuRanking | None = None
+
+
+class CpuRankingListResponse(BaseModel):
+    items: list[CpuRankingListItem]
+    page: int
+    limit: int
+    total: int
