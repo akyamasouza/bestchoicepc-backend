@@ -1,7 +1,11 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from pymongo import ASCENDING, DESCENDING
 from pymongo.collection import Collection
 from pymongo.results import UpdateResult
 
+from app.core.config import settings
 from app.schemas.daily_cpu_offer import DailyCpuOffer
 
 
@@ -30,3 +34,8 @@ class DailyCpuOfferRepository:
             {"$set": offer.model_dump()},
             upsert=True,
         )
+
+    def list_today(self) -> list[DailyCpuOffer]:
+        today = datetime.now(ZoneInfo(settings.business_timezone)).date().isoformat()
+        cursor = self.collection.find({"business_date": today}).sort([("cpu_name", ASCENDING), ("store", ASCENDING)])
+        return [DailyCpuOffer(**document) for document in cursor]
