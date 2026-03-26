@@ -3,8 +3,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from app.core.database import close_mongo_client, get_cpu_collection, get_daily_cpu_offer_collection
-from app.repositories.daily_cpu_offer_repository import DailyCpuOfferRepository
+from app.core.database import close_mongo_client, get_cpu_collection, get_daily_offer_collection
+from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.services.daily_offer_sync import DailyOfferSyncService
 from app.services.telegram_offer_parser import TelegramOfferParser
 from app.services.telegram_search import TelegramChannelSearchService
@@ -12,7 +12,7 @@ from app.services.telegram_search import TelegramChannelSearchService
 
 async def run(channel: str | None = None, limit: int = 1) -> int:
     telegram_search_service = TelegramChannelSearchService()
-    daily_offer_repository = DailyCpuOfferRepository(get_daily_cpu_offer_collection())
+    daily_offer_repository = DailyOfferRepository(get_daily_offer_collection())
     sync_service = DailyOfferSyncService(
         cpu_collection=get_cpu_collection(),
         daily_offer_repository=daily_offer_repository,

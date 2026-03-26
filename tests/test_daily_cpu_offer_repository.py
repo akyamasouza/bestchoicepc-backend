@@ -1,7 +1,7 @@
 from typing import Any
 
-from app.repositories.daily_cpu_offer_repository import DailyCpuOfferRepository
-from app.schemas.daily_cpu_offer import DailyCpuOffer
+from app.repositories.daily_offer_repository import DailyOfferRepository
+from app.schemas.daily_offer import DailyOffer
 
 
 class FakeUpdateResult:
@@ -24,13 +24,14 @@ class FakeCollection:
 
 def test_repository_creates_expected_indexes_and_upserts_by_date_sku_store() -> None:
     collection = FakeCollection()
-    repository = DailyCpuOfferRepository(collection)
+    repository = DailyOfferRepository(collection)
 
     repository.ensure_indexes()
-    offer = DailyCpuOffer(
+    offer = DailyOffer(
         business_date="2026-03-25",
-        cpu_sku="100-100001084WOF",
-        cpu_name="AMD Ryzen 7 9800X3D",
+        entity_type="cpu",
+        entity_sku="100-100001084WOF",
+        entity_name="AMD Ryzen 7 9800X3D",
         store="amazon",
         store_display_name="Amazon",
         price_card=2799.99,
@@ -47,14 +48,15 @@ def test_repository_creates_expected_indexes_and_upserts_by_date_sku_store() -> 
     repository.upsert(offer)
 
     assert collection.indexes == [
-        ([("business_date", 1), ("cpu_sku", 1), ("store", 1)], True),
-        ([("cpu_sku", 1), ("business_date", -1)], False),
+        ([("business_date", 1), ("entity_type", 1), ("entity_sku", 1), ("store", 1)], True),
+        ([("entity_type", 1), ("entity_sku", 1), ("business_date", -1)], False),
     ]
     assert collection.operations == [
         (
             {
                 "business_date": "2026-03-25",
-                "cpu_sku": "100-100001084WOF",
+                "entity_type": "cpu",
+                "entity_sku": "100-100001084WOF",
                 "store": "amazon",
             },
             {"$set": offer.model_dump()},

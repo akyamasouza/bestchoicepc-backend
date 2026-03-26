@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from app.repositories.daily_cpu_offer_repository import DailyCpuOfferRepository
+from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.services.daily_offer_sync import DailyOfferSyncService
 from app.services.telegram_offer_parser import TelegramOfferParser
 
@@ -59,7 +59,7 @@ def test_sync_persists_one_daily_offer_per_cpu_query() -> None:
         ]
     )
     offer_collection = FakeOfferCollection()
-    repository = DailyCpuOfferRepository(offer_collection)
+    repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
         {
             "AMD Ryzen 7 9800X3D": [
@@ -97,12 +97,13 @@ def test_sync_persists_one_daily_offer_per_cpu_query() -> None:
         ("AMD Ryzen 7 9800X3D", None, 1),
     ]
     assert offer_collection.indexes == [
-        ([("business_date", 1), ("cpu_sku", 1), ("store", 1)], True),
-        ([("cpu_sku", 1), ("business_date", -1)], False),
+        ([("business_date", 1), ("entity_type", 1), ("entity_sku", 1), ("store", 1)], True),
+        ([("entity_type", 1), ("entity_sku", 1), ("business_date", -1)], False),
     ]
     assert offer_collection.operations[0][0] == {
         "business_date": "2026-03-25",
-        "cpu_sku": "100-100001084WOF",
+        "entity_type": "cpu",
+        "entity_sku": "100-100001084WOF",
         "store": "amazon",
     }
 
@@ -110,7 +111,7 @@ def test_sync_persists_one_daily_offer_per_cpu_query() -> None:
 def test_sync_collects_parser_errors_and_continues() -> None:
     cpu_collection = FakeCpuCollection([{"sku": "sku-1", "name": "AMD Ryzen 7 9800X3D"}])
     offer_collection = FakeOfferCollection()
-    repository = DailyCpuOfferRepository(offer_collection)
+    repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
         {
             "AMD Ryzen 7 9800X3D": [
@@ -143,7 +144,7 @@ def test_sync_collects_parser_errors_and_continues() -> None:
 def test_sync_skips_offers_older_than_ninety_days() -> None:
     cpu_collection = FakeCpuCollection([{"sku": "sku-1", "name": "AMD Ryzen 7 9800X3D"}])
     offer_collection = FakeOfferCollection()
-    repository = DailyCpuOfferRepository(offer_collection)
+    repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
         {
             "AMD Ryzen 7 9800X3D": [
@@ -185,7 +186,7 @@ def test_sync_collects_search_errors_and_continues() -> None:
         ]
     )
     offer_collection = FakeOfferCollection()
-    repository = DailyCpuOfferRepository(offer_collection)
+    repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
         {
             "AMD Ryzen 7 9700X": [

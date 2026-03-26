@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from zoneinfo import ZoneInfo
 
 from app.core.config import settings
-from app.schemas.daily_cpu_offer import DailyCpuOffer
+from app.schemas.daily_offer import DailyOffer
 
 
 class TelegramOfferParser:
@@ -24,9 +24,10 @@ class TelegramOfferParser:
         self,
         message: dict[str, object],
         *,
-        cpu_sku: str,
-        cpu_name: str,
-    ) -> DailyCpuOffer:
+        entity_type: str,
+        entity_sku: str,
+        entity_name: str,
+    ) -> DailyOffer:
         text = str(message.get("text") or "").strip()
 
         if not text:
@@ -35,10 +36,11 @@ class TelegramOfferParser:
         store_display_name, source_url = self._parse_store_and_url(text)
         posted_at = self._parse_posted_at(message.get("date_iso"))
 
-        return DailyCpuOffer(
+        return DailyOffer(
             business_date=posted_at.astimezone(self.business_timezone).date().isoformat(),
-            cpu_sku=cpu_sku,
-            cpu_name=cpu_name,
+            entity_type=entity_type,
+            entity_sku=entity_sku,
+            entity_name=entity_name,
             store=self._normalize_store_name(store_display_name),
             store_display_name=store_display_name,
             price_card=self._parse_price(text),

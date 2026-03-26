@@ -1,10 +1,11 @@
 from pydantic import BaseModel
 
 
-class DailyCpuOffer(BaseModel):
+class DailyOffer(BaseModel):
     business_date: str
-    cpu_sku: str
-    cpu_name: str
+    entity_type: str
+    entity_sku: str
+    entity_name: str
     store: str
     store_display_name: str
     price_card: float

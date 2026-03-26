@@ -6,7 +6,7 @@ from typing import Any, Protocol
 
 from pymongo.collection import Collection
 
-from app.repositories.daily_cpu_offer_repository import DailyCpuOfferRepository
+from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.services.telegram_offer_parser import TelegramOfferParser
 
 
@@ -33,7 +33,7 @@ class DailyOfferSyncService:
         self,
         *,
         cpu_collection: Collection,
-        daily_offer_repository: DailyCpuOfferRepository,
+        daily_offer_repository: DailyOfferRepository,
         telegram_search_service: TelegramSearchServiceProtocol,
         offer_parser: TelegramOfferParser,
         max_offer_age_days: int = 90,
@@ -74,7 +74,12 @@ class DailyOfferSyncService:
             result.matched += 1
 
             try:
-                offer = self.offer_parser.parse(messages[0], cpu_sku=cpu_sku, cpu_name=cpu_name)
+                offer = self.offer_parser.parse(
+                    messages[0],
+                    entity_type="cpu",
+                    entity_sku=cpu_sku,
+                    entity_name=cpu_name,
+                )
             except ValueError as exc:
                 result.skipped += 1
                 result.errors.append(f"{cpu_sku}: {exc}")

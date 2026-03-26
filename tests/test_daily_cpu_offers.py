@@ -4,17 +4,19 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.routes.daily_cpu_offers import get_daily_cpu_offer_repository
-from app.schemas.daily_cpu_offer import DailyCpuOffer
+from app.routes.daily_offers import get_daily_offer_repository
+from app.schemas.daily_offer import DailyOffer
 
 
-class FakeDailyCpuOfferRepository:
-    def list_today(self) -> list[DailyCpuOffer]:
+class FakeDailyOfferRepository:
+    def list_today(self, entity_type: str | None = None) -> list[DailyOffer]:
+        assert entity_type == "cpu"
         return [
-            DailyCpuOffer(
+            DailyOffer(
                 business_date="2026-03-25",
-                cpu_sku="100-100001084WOF",
-                cpu_name="AMD Ryzen 7 9800X3D",
+                entity_type="cpu",
+                entity_sku="100-100001084WOF",
+                entity_name="AMD Ryzen 7 9800X3D",
                 store="amazon",
                 store_display_name="Amazon",
                 price_card=2799.99,
@@ -51,15 +53,20 @@ class FakeCollection:
 
     def find(self, query: dict[str, Any]) -> FakeCursor:
         self.find_calls.append(query)
-        filtered = [document for document in self.documents if document.get("business_date") == query["business_date"]]
+        filtered = [
+            document
+            for document in self.documents
+            if document.get("business_date") == query["business_date"]
+            and document.get("entity_type") == query.get("entity_type", document.get("entity_type"))
+        ]
         return FakeCursor(filtered)
 
 
 def test_list_today_daily_cpu_offers() -> None:
-    app.dependency_overrides[get_daily_cpu_offer_repository] = FakeDailyCpuOfferRepository
+    app.dependency_overrides[get_daily_offer_repository] = FakeDailyOfferRepository
     client = TestClient(app)
 
-    response = client.get("/daily-cpu-offers")
+    response = client.get("/daily-offers?entity_type=cpu")
 
     app.dependency_overrides.clear()
 
@@ -67,8 +74,9 @@ def test_list_today_daily_cpu_offers() -> None:
     assert response.json() == [
         {
             "business_date": "2026-03-25",
-            "cpu_sku": "100-100001084WOF",
-            "cpu_name": "AMD Ryzen 7 9800X3D",
+            "entity_type": "cpu",
+            "entity_sku": "100-100001084WOF",
+            "entity_name": "AMD Ryzen 7 9800X3D",
             "store": "amazon",
             "store_display_name": "Amazon",
             "price_card": 2799.99,
@@ -85,14 +93,15 @@ def test_list_today_daily_cpu_offers() -> None:
 
 
 def test_daily_cpu_offer_repository_lists_only_today(monkeypatch) -> None:
-    from app.repositories.daily_cpu_offer_repository import DailyCpuOfferRepository
+    from app.repositories.daily_offer_repository import DailyOfferRepository
 
     collection = FakeCollection(
         [
             {
                 "business_date": "2026-03-25",
-                "cpu_sku": "100-100001084WOF",
-                "cpu_name": "AMD Ryzen 7 9800X3D",
+                "entity_type": "cpu",
+                "entity_sku": "100-100001084WOF",
+                "entity_name": "AMD Ryzen 7 9800X3D",
                 "store": "amazon",
                 "store_display_name": "Amazon",
                 "price_card": 2799.99,
@@ -107,8 +116,9 @@ def test_daily_cpu_offer_repository_lists_only_today(monkeypatch) -> None:
             },
             {
                 "business_date": "2026-03-24",
-                "cpu_sku": "100-100001404WOF",
-                "cpu_name": "AMD Ryzen 7 9700X",
+                "entity_type": "cpu",
+                "entity_sku": "100-100001404WOF",
+                "entity_name": "AMD Ryzen 7 9700X",
                 "store": "kabum",
                 "store_display_name": "KaBuM!",
                 "price_card": 2199.99,
@@ -124,13 +134,13 @@ def test_daily_cpu_offer_repository_lists_only_today(monkeypatch) -> None:
         ]
     )
     monkeypatch.setattr(
-        "app.repositories.daily_cpu_offer_repository.datetime",
+        "app.repositories.daily_offer_repository.datetime",
         type("FrozenDateTime", (), {"now": staticmethod(lambda _tz: __import__("datetime").datetime(2026, 3, 25, 12, 0, 0))}),
     )
-    repository = DailyCpuOfferRepository(collection)
+    repository = DailyOfferRepository(collection)
 
-    result = repository.list_today()
+    result = repository.list_today(entity_type="cpu")
 
-    assert collection.find_calls == [{"business_date": "2026-03-25"}]
+    assert collection.find_calls == [{"business_date": "2026-03-25", "entity_type": "cpu"}]
     assert len(result) == 1
-    assert result[0].cpu_name == "AMD Ryzen 7 9800X3D"
+    assert result[0].entity_name == "AMD Ryzen 7 9800X3D"

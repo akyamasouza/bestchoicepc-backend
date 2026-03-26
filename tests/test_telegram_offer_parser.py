@@ -15,10 +15,16 @@ def test_parse_amazon_offer_extracts_expected_fields() -> None:
         "url": "https://t.me/pcbuildwizard/883696",
     }
 
-    offer = parser.parse(message, cpu_sku="100-100001084WOF", cpu_name="AMD Ryzen 7 9800X3D")
+    offer = parser.parse(
+        message,
+        entity_type="cpu",
+        entity_sku="100-100001084WOF",
+        entity_name="AMD Ryzen 7 9800X3D",
+    )
 
     assert offer.business_date == "2026-03-25"
-    assert offer.cpu_sku == "100-100001084WOF"
+    assert offer.entity_type == "cpu"
+    assert offer.entity_sku == "100-100001084WOF"
     assert offer.store == "amazon"
     assert offer.store_display_name == "Amazon"
     assert offer.price_card == 2799.99
@@ -45,7 +51,12 @@ def test_parse_kabum_offer_uses_business_timezone_for_date() -> None:
         "url": "https://t.me/pcbuildwizard/882613",
     }
 
-    offer = parser.parse(message, cpu_sku="100-100001084WOF", cpu_name="AMD Ryzen 7 9800X3D")
+    offer = parser.parse(
+        message,
+        entity_type="cpu",
+        entity_sku="100-100001084WOF",
+        entity_name="AMD Ryzen 7 9800X3D",
+    )
 
     assert offer.business_date == "2026-03-25"
     assert offer.store == "kabum"
@@ -64,7 +75,7 @@ def test_parse_raises_when_store_is_missing() -> None:
     }
 
     try:
-        parser.parse(message, cpu_sku="sku", cpu_name="cpu")
+        parser.parse(message, entity_type="cpu", entity_sku="sku", entity_name="cpu")
     except ValueError as exc:
         assert str(exc) == "Could not extract store from Telegram message."
     else:
@@ -83,7 +94,12 @@ def test_parse_infers_store_from_url_when_label_is_missing() -> None:
         "url": "https://t.me/pcbuildwizard/882613",
     }
 
-    offer = parser.parse(message, cpu_sku="100-100001084WOF", cpu_name="AMD Ryzen 7 9800X3D")
+    offer = parser.parse(
+        message,
+        entity_type="cpu",
+        entity_sku="100-100001084WOF",
+        entity_name="AMD Ryzen 7 9800X3D",
+    )
 
     assert offer.store == "kabum"
     assert offer.store_display_name == "kabum"
