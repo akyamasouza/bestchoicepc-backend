@@ -1,6 +1,7 @@
 from typing import Any
 
 from app.data.cpus import CPUS
+from app.data.cpu_techpowerup import resolve_techpowerup_cpu_application_score
 from app.scripts.seed_cpus import seed_cpus
 
 
@@ -39,5 +40,8 @@ def test_seed_cpus_upserts_by_sku(monkeypatch) -> None:
     assert collection.indexes == [([("sku", 1)], True)]
     assert len(collection.operations) == len(CPUS)
     assert collection.operations[0][0] == {"sku": CPUS[0]["sku"]}
-    assert collection.operations[0][1] == {"$set": CPUS[0]}
+    first_document = collection.operations[0][1]["$set"]
+    expected_score = resolve_techpowerup_cpu_application_score(CPUS[0]["name"], CPUS[0]["other_names"])
+    assert first_document["sku"] == CPUS[0]["sku"]
+    assert first_document["benchmark"].get("techpowerup_relative_performance_applications") == expected_score
     assert collection.operations[0][2] is True

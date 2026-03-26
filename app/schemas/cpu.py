@@ -4,6 +4,7 @@ from pydantic import BaseModel
 class CpuBenchmark(BaseModel):
     multithread_rating: int | None = None
     single_thread_rating: int | None = None
+    techpowerup_relative_performance_applications: float | None = None
     samples: int | None = None
     margin_for_error: str | None = None
 

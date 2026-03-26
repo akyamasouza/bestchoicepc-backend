@@ -44,6 +44,9 @@ class CpuRepository:
         return CpuBenchmark(
             multithread_rating=benchmark.get("multithread_rating"),
             single_thread_rating=benchmark.get("single_thread_rating"),
+            techpowerup_relative_performance_applications=benchmark.get(
+                "techpowerup_relative_performance_applications"
+            ),
             samples=benchmark.get("samples"),
             margin_for_error=benchmark.get("margin_for_error"),
         )

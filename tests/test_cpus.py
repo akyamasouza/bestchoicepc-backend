@@ -21,6 +21,7 @@ class FakeCpuRepository:
                 benchmark=CpuBenchmark(
                     multithread_rating=34321,
                     single_thread_rating=4012,
+                    techpowerup_relative_performance_applications=85.1,
                     samples=4200,
                     margin_for_error="Low",
                 ),
@@ -40,6 +41,7 @@ class FakeCpuRepository:
                 benchmark=CpuBenchmark(
                     multithread_rating=65809,
                     single_thread_rating=4729,
+                    techpowerup_relative_performance_applications=125.1,
                     samples=5519,
                     margin_for_error="Low",
                 ),
@@ -97,6 +99,7 @@ def test_list_cpus() -> None:
             "benchmark": {
                 "multithread_rating": 34321,
                 "single_thread_rating": 4012,
+                "techpowerup_relative_performance_applications": 85.1,
                 "samples": 4200,
                 "margin_for_error": "Low",
             },
@@ -116,6 +119,7 @@ def test_list_cpus() -> None:
             "benchmark": {
                 "multithread_rating": 65809,
                 "single_thread_rating": 4729,
+                "techpowerup_relative_performance_applications": 125.1,
                 "samples": 5519,
                 "margin_for_error": "Low",
             },
@@ -144,6 +148,7 @@ def test_cpu_repository_maps_documents() -> None:
                     "benchmark": {
                         "multithread_rating": 65809,
                         "single_thread_rating": 4729,
+                        "techpowerup_relative_performance_applications": 125.1,
                         "samples": 5519,
                         "margin_for_error": "Low",
                     },
@@ -163,6 +168,7 @@ def test_cpu_repository_maps_documents() -> None:
                     "benchmark": {
                         "multithread_rating": 34321,
                         "single_thread_rating": 4012,
+                        "techpowerup_relative_performance_applications": 85.1,
                         "samples": 4200,
                         "margin_for_error": "Low",
                     },
@@ -185,5 +191,6 @@ def test_cpu_repository_maps_documents() -> None:
     ]
     assert result[0].benchmark is not None
     assert result[0].benchmark.multithread_rating == 34321
+    assert result[0].benchmark.techpowerup_relative_performance_applications == 85.1
     assert result[0].ranking is not None
     assert result[0].ranking.performance_tier == "S"
