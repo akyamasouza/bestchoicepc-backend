@@ -37,6 +37,10 @@ def get_ssd_collection() -> Collection:
     return get_database()["ssds"]
 
 
+def get_ram_collection() -> Collection:
+    return get_database()["rams"]
+
+
 def get_psu_collection() -> Collection:
     return get_database()["psus"]
 
