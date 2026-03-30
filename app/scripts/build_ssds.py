@@ -169,11 +169,6 @@ def build_ssds(*, html: str, output_path: Path = DEFAULT_OUTPUT_PATH) -> list[di
 def main() -> None:
     parser = argparse.ArgumentParser(description="Gera app/data/ssds.py a partir do ranking do SSD Tester.")
     parser.add_argument(
-        "--input-html",
-        type=Path,
-        help="Arquivo HTML salvo localmente. Use esta opcao se estiver sem acesso de rede.",
-    )
-    parser.add_argument(
         "--output",
         type=Path,
         default=DEFAULT_OUTPUT_PATH,
@@ -186,11 +181,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if args.input_html is not None:
-        html = args.input_html.read_text(encoding="utf-8")
-    else:
-        html = fetch_top_ssd_html(url=args.url)
-
+    html = fetch_top_ssd_html(url=args.url)
     ssds = build_ssds(html=html, output_path=args.output)
     print(f"Gerado {args.output} com {len(ssds)} SSD(s).")
 
