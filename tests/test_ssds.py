@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Iterator
+import re
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -160,13 +161,31 @@ class FakeCursor(Iterable[dict[str, Any]]):
     def __init__(self, documents: list[dict[str, Any]]):
         self.documents = documents
 
-    def sort(self, field: str, direction: int) -> "FakeCursor":
+    def sort(self, field_or_fields, direction: int | None = None) -> "FakeCursor":
+        if isinstance(field_or_fields, list):
+            for field, sort_direction in reversed(field_or_fields):
+                reverse = sort_direction == -1
+                self.documents = sorted(
+                    self.documents,
+                    key=lambda document: _get_nested_value(document, field),
+                    reverse=reverse,
+                )
+            return self
+
         reverse = direction == -1
         self.documents = sorted(
             self.documents,
-            key=lambda document: document.get(field, ""),
+            key=lambda document: _get_nested_value(document, field_or_fields),
             reverse=reverse,
         )
+        return self
+
+    def skip(self, value: int) -> "FakeCursor":
+        self.documents = self.documents[value:]
+        return self
+
+    def limit(self, value: int) -> "FakeCursor":
+        self.documents = self.documents[:value]
         return self
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
@@ -177,8 +196,67 @@ class FakeCollection:
     def __init__(self, documents: list[dict[str, Any]]):
         self.documents = documents
 
-    def find(self, *_args: Any, **_kwargs: Any) -> FakeCursor:
-        return FakeCursor(self.documents)
+    def find(self, query: dict[str, Any] | None = None, projection: dict[str, Any] | None = None) -> FakeCursor:
+        filtered = [document for document in self.documents if _matches_query(document, query or {})]
+        projected = [_apply_projection(document, projection) for document in filtered]
+        return FakeCursor(projected)
+
+    def count_documents(self, query: dict[str, Any]) -> int:
+        return sum(1 for document in self.documents if _matches_query(document, query))
+
+
+def _matches_query(document: dict[str, Any], query: dict[str, Any]) -> bool:
+    for key, expected in query.items():
+        if key == "$or":
+            if not any(_matches_query(document, clause) for clause in expected):
+                return False
+            continue
+
+        actual = _get_nested_value(document, key)
+        if isinstance(expected, dict) and "$regex" in expected:
+            pattern = expected["$regex"]
+            flags = re.IGNORECASE if "i" in expected.get("$options", "") else 0
+            if actual is None or re.search(pattern, str(actual), flags) is None:
+                return False
+            continue
+
+        if actual != expected:
+            return False
+
+    return True
+
+
+def _apply_projection(document: dict[str, Any], projection: dict[str, Any] | None) -> dict[str, Any]:
+    if projection is None:
+        return dict(document)
+
+    projected = {"_id": document.get("_id")}
+    for key, enabled in projection.items():
+        if not enabled or key == "_id":
+            continue
+
+        value = _get_nested_value(document, key)
+        if value is not None:
+            _set_nested_value(projected, key, value)
+
+    return projected
+
+
+def _get_nested_value(document: dict[str, Any], path: str) -> Any:
+    current: Any = document
+    for part in path.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+    return current
+
+
+def _set_nested_value(document: dict[str, Any], path: str, value: Any) -> None:
+    current = document
+    parts = path.split(".")
+    for part in parts[:-1]:
+        current = current.setdefault(part, {})
+    current[parts[-1]] = value
 
 
 def test_list_ssds() -> None:

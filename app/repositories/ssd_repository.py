@@ -1,7 +1,10 @@
+import re
 from typing import Any, Literal
 
+from pymongo import ASCENDING, DESCENDING
 from pymongo.collection import Collection
 
+from app.repositories.ranking_query import RankingQueryStrategy, execute_ranking_query
 from app.schemas.ssd import (
     SsdBenchmark,
     SsdListItem,
@@ -15,6 +18,23 @@ from app.schemas.ssd import (
 class SsdRepository:
     def __init__(self, collection: Collection):
         self.collection = collection
+        self.ranking_strategy = RankingQueryStrategy[
+            SsdRankingListItem,
+            SsdRankingListResponse,
+        ](
+            projection={
+                "_id": 1,
+                "name": 1,
+                "sku": 1,
+                "brand": 1,
+                "capacity_gb": 1,
+                "interface": 1,
+                "ranking": 1,
+            },
+            build_query_fn=self._build_rankings_query,
+            map_item_fn=self._to_ranking_list_item,
+            build_response_fn=self._build_rankings_response,
+        )
 
     def list_ssds(
         self,
@@ -22,27 +42,32 @@ class SsdRepository:
         page: int = 1,
         limit: int = 20,
     ) -> SsdListResponse:
-        cursor = self.collection.find(
-            {},
-            {
-                "name": 1,
-                "sku": 1,
-                "brand": 1,
-                "capacity_gb": 1,
-                "interface": 1,
-                "nand": 1,
-                "dram": 1,
-                "benchmark": 1,
-                "ranking": 1,
-            },
-        ).sort("name", 1)
+        query: dict[str, Any] = {}
+        total = self.collection.count_documents(query)
+        cursor = (
+            self.collection.find(
+                query,
+                {
+                    "name": 1,
+                    "sku": 1,
+                    "brand": 1,
+                    "capacity_gb": 1,
+                    "interface": 1,
+                    "nand": 1,
+                    "dram": 1,
+                    "benchmark": 1,
+                    "ranking": 1,
+                },
+            )
+            .sort("name", ASCENDING)
+            .skip((page - 1) * limit)
+            .limit(limit)
+        )
 
         items = [self._to_list_item(document) for document in cursor]
-        total = len(items)
-        start = (page - 1) * limit
 
         return SsdListResponse(
-            items=items[start : start + limit],
+            items=items,
             page=page,
             limit=limit,
             total=total,
@@ -60,60 +85,62 @@ class SsdRepository:
         page: int = 1,
         limit: int = 20,
     ) -> SsdRankingListResponse:
-        cursor = self.collection.find(
-            {},
-            {
-                "_id": 1,
-                "name": 1,
-                "sku": 1,
-                "brand": 1,
-                "capacity_gb": 1,
-                "interface": 1,
-                "ranking": 1,
+        return execute_ranking_query(
+            self.collection,
+            self.ranking_strategy,
+            filters={
+                "brand": brand,
+                "capacity_gb": capacity_gb,
+                "interface": interface,
+                "performance_tier": performance_tier,
+                "q": q,
             },
+            sort=sort,
+            page=page,
+            limit=limit,
         )
 
-        items = [self._to_ranking_list_item(document) for document in cursor]
+    def _build_rankings_query(
+        self,
+        filters: dict[str, Any],
+    ) -> dict[str, Any]:
+        brand = filters.get("brand")
+        capacity_gb = filters.get("capacity_gb")
+        interface = filters.get("interface")
+        performance_tier = filters.get("performance_tier")
+        q = filters.get("q")
+        query: dict[str, Any] = {}
 
         if brand is not None:
-            normalized_brand = brand.strip().lower()
-            items = [item for item in items if item.brand.lower() == normalized_brand]
+            query["brand"] = {"$regex": f"^{re.escape(brand.strip())}$", "$options": "i"}
 
         if capacity_gb is not None:
-            items = [item for item in items if item.capacity_gb == capacity_gb]
+            query["capacity_gb"] = capacity_gb
 
         if interface is not None:
-            normalized_interface = interface.strip().lower()
-            items = [
-                item
-                for item in items
-                if item.interface is not None and item.interface.lower() == normalized_interface
-            ]
+            query["interface"] = {"$regex": f"^{re.escape(interface.strip())}$", "$options": "i"}
 
         if performance_tier is not None:
-            normalized_tier = performance_tier.strip().upper()
-            items = [
-                item
-                for item in items
-                if item.ranking is not None and item.ranking.performance_tier == normalized_tier
-            ]
+            query["ranking.performance_tier"] = performance_tier.strip().upper()
 
         if q is not None and q.strip():
-            normalized_query = q.strip().lower()
-            items = [
-                item
-                for item in items
-                if normalized_query in item.name.lower() or normalized_query in item.sku.lower()
+            normalized_query = re.escape(q.strip())
+            query["$or"] = [
+                {"name": {"$regex": normalized_query, "$options": "i"}},
+                {"sku": {"$regex": normalized_query, "$options": "i"}},
             ]
 
-        items = sorted(items, key=lambda item: item.name.lower())
-        items = sorted(items, key=self._ranking_percentile_sort_key, reverse=sort == "desc")
+        return query
 
-        total = len(items)
-        start = (page - 1) * limit
-
+    @staticmethod
+    def _build_rankings_response(
+        items: list[SsdRankingListItem],
+        page: int,
+        limit: int,
+        total: int,
+    ) -> SsdRankingListResponse:
         return SsdRankingListResponse(
-            items=items[start : start + limit],
+            items=items,
             page=page,
             limit=limit,
             total=total,
@@ -161,10 +188,3 @@ class SsdRepository:
             game_percentile=ranking.get("game_percentile"),
             performance_tier=ranking.get("performance_tier"),
         )
-
-    @staticmethod
-    def _ranking_percentile_sort_key(item: SsdRankingListItem) -> float:
-        if item.ranking is None or item.ranking.game_percentile is None:
-            return float("-inf")
-
-        return item.ranking.game_percentile

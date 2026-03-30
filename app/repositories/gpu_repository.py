@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pymongo.collection import Collection
 
+from app.repositories.ranking_query import RankingQueryStrategy, execute_ranking_query
 from app.schemas.gpu import (
     GpuBenchmark,
     GpuListItem,
@@ -15,6 +16,23 @@ from app.schemas.gpu import (
 class GpuRepository:
     def __init__(self, collection: Collection):
         self.collection = collection
+        self.ranking_strategy = RankingQueryStrategy[
+            GpuRankingListItem,
+            GpuRankingListResponse,
+        ](
+            projection={
+                "_id": 1,
+                "name": 1,
+                "sku": 1,
+                "brand": 1,
+                "category": 1,
+                "first_benchmarked": 1,
+                "ranking": 1,
+            },
+            build_query_fn=self._build_rankings_query,
+            map_item_fn=self._to_ranking_list_item,
+            build_response_fn=self._build_rankings_response,
+        )
 
     def list_gpus(self) -> list[GpuListItem]:
         cursor = self.collection.find(
@@ -47,63 +65,62 @@ class GpuRepository:
         page: int = 1,
         limit: int = 20,
     ) -> GpuRankingListResponse:
-        cursor = self.collection.find(
-            {},
-            {
-                "_id": 1,
-                "name": 1,
-                "sku": 1,
-                "brand": 1,
-                "category": 1,
-                "first_benchmarked": 1,
-                "ranking": 1,
+        return execute_ranking_query(
+            self.collection,
+            self.ranking_strategy,
+            filters={
+                "brand": brand,
+                "category": category,
+                "release_year": release_year,
+                "performance_tier": performance_tier,
+                "q": q,
             },
+            sort=sort,
+            page=page,
+            limit=limit,
         )
 
-        items = [self._to_ranking_list_item(document) for document in cursor]
+    def _build_rankings_query(
+        self,
+        filters: dict[str, Any],
+    ) -> dict[str, Any]:
+        brand = filters.get("brand")
+        category = filters.get("category")
+        release_year = filters.get("release_year")
+        performance_tier = filters.get("performance_tier")
+        q = filters.get("q")
+        query: dict[str, Any] = {}
 
         if brand is not None:
-            normalized_brand = brand.strip().lower()
-            items = [
-                item for item in items if item.brand is not None and item.brand.lower() == normalized_brand
-            ]
+            query["brand"] = {"$regex": f"^{re.escape(brand.strip())}$", "$options": "i"}
 
         if category is not None:
-            normalized_category = category.strip().lower()
-            items = [
-                item
-                for item in items
-                if item.category is not None and item.category.lower() == normalized_category
-            ]
+            query["category"] = {"$regex": f"^{re.escape(category.strip())}$", "$options": "i"}
 
         if release_year is not None:
-            items = [item for item in items if item.release_year == release_year]
+            query["first_benchmarked"] = {"$regex": str(release_year)}
 
         if performance_tier is not None:
-            normalized_tier = performance_tier.strip().upper()
-            items = [
-                item
-                for item in items
-                if item.ranking is not None and item.ranking.performance_tier == normalized_tier
-            ]
+            query["ranking.performance_tier"] = performance_tier.strip().upper()
 
         if q is not None and q.strip():
-            normalized_query = q.strip().lower()
-            items = [
-                item
-                for item in items
-                if normalized_query in item.name.lower() or normalized_query in item.sku.lower()
+            normalized_query = re.escape(q.strip())
+            query["$or"] = [
+                {"name": {"$regex": normalized_query, "$options": "i"}},
+                {"sku": {"$regex": normalized_query, "$options": "i"}},
             ]
 
-        items = sorted(items, key=lambda item: item.name.lower())
-        items = sorted(items, key=self._ranking_percentile_sort_key, reverse=sort == "desc")
+        return query
 
-        total = len(items)
-        start = (page - 1) * limit
-        paginated_items = items[start : start + limit]
-
+    @staticmethod
+    def _build_rankings_response(
+        items: list[GpuRankingListItem],
+        page: int,
+        limit: int,
+        total: int,
+    ) -> GpuRankingListResponse:
         return GpuRankingListResponse(
-            items=paginated_items,
+            items=items,
             page=page,
             limit=limit,
             total=total,
@@ -168,10 +185,3 @@ class GpuRepository:
             return None
 
         return int(match.group(1))
-
-    @staticmethod
-    def _ranking_percentile_sort_key(item: GpuRankingListItem) -> float:
-        if item.ranking is None or item.ranking.game_percentile is None:
-            return float("-inf")
-
-        return item.ranking.game_percentile

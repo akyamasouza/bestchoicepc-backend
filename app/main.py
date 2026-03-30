@@ -23,8 +23,3 @@ app.include_router(gpus_router)
 app.include_router(ssds_router)
 app.include_router(daily_offers_router)
 app.include_router(matches_router)
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
