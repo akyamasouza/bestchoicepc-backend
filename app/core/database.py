@@ -33,5 +33,9 @@ def get_gpu_collection() -> Collection:
     return get_database()["gpus"]
 
 
+def get_ssd_collection() -> Collection:
+    return get_database()["ssds"]
+
+
 def get_daily_offer_collection() -> Collection:
     return get_database()["daily_offers"]
