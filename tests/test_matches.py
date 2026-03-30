@@ -12,8 +12,12 @@ from app.schemas.gpu import GpuListItem, GpuRanking
 
 
 class FakeCpuRepository:
-    def list_cpus(self) -> list[CpuListItem]:
-        return [
+    def __init__(self) -> None:
+        self.last_requested_sku: str | None = None
+
+    def list_match_candidates(self, *, sku: str | None = None) -> list[CpuListItem]:
+        self.last_requested_sku = sku
+        items = [
             CpuListItem(
                 id="cpu-1",
                 name="AMD Ryzen 5 7600",
@@ -43,11 +47,18 @@ class FakeCpuRepository:
                 ),
             ),
         ]
+        if sku is None:
+            return items
+        return [item for item in items if item.sku == sku]
 
 
 class FakeGpuRepository:
-    def list_gpus(self) -> list[GpuListItem]:
-        return [
+    def __init__(self) -> None:
+        self.last_requested_sku: str | None = None
+
+    def list_match_candidates(self, *, sku: str | None = None) -> list[GpuListItem]:
+        self.last_requested_sku = sku
+        items = [
             GpuListItem(
                 id="gpu-1",
                 name="GeForce RTX 4060",
@@ -83,6 +94,9 @@ class FakeGpuRepository:
                 ),
             ),
         ]
+        if sku is None:
+            return items
+        return [item for item in items if item.sku == sku]
 
 
 class FakeDailyOfferRepository:
@@ -167,8 +181,10 @@ class FakeDailyOfferRepository:
 
 
 def test_list_matches_returns_ranked_pairs() -> None:
-    app.dependency_overrides[get_cpu_repository] = FakeCpuRepository
-    app.dependency_overrides[get_gpu_repository] = FakeGpuRepository
+    cpu_repository = FakeCpuRepository()
+    gpu_repository = FakeGpuRepository()
+    app.dependency_overrides[get_cpu_repository] = lambda: cpu_repository
+    app.dependency_overrides[get_gpu_repository] = lambda: gpu_repository
     app.dependency_overrides[get_daily_offer_repository] = FakeDailyOfferRepository
     client = TestClient(app)
 
@@ -187,6 +203,8 @@ def test_list_matches_returns_ranked_pairs() -> None:
     assert response.status_code == 200
     payload = response.json()
 
+    assert cpu_repository.last_requested_sku is None
+    assert gpu_repository.last_requested_sku is None
     assert payload["total"] == 3
     assert len(payload["items"]) == 3
     top_match = payload["items"][0]
@@ -214,8 +232,10 @@ def test_list_matches_returns_ranked_pairs() -> None:
 
 
 def test_list_matches_returns_bad_request_for_unknown_owned_cpu() -> None:
-    app.dependency_overrides[get_cpu_repository] = FakeCpuRepository
-    app.dependency_overrides[get_gpu_repository] = FakeGpuRepository
+    cpu_repository = FakeCpuRepository()
+    gpu_repository = FakeGpuRepository()
+    app.dependency_overrides[get_cpu_repository] = lambda: cpu_repository
+    app.dependency_overrides[get_gpu_repository] = lambda: gpu_repository
     app.dependency_overrides[get_daily_offer_repository] = FakeDailyOfferRepository
     client = TestClient(app)
 
@@ -231,6 +251,8 @@ def test_list_matches_returns_bad_request_for_unknown_owned_cpu() -> None:
 
     app.dependency_overrides.clear()
 
+    assert cpu_repository.last_requested_sku == "cpu-inexistente"
+    assert gpu_repository.last_requested_sku is None
     assert response.status_code == 400
     assert response.json() == {
         "detail": "CPU ownada nao encontrada: cpu-inexistente",

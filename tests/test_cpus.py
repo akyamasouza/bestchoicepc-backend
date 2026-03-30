@@ -205,6 +205,11 @@ def _matches_query(document: dict[str, Any], query: dict[str, Any]) -> bool:
                 return False
             continue
 
+        if isinstance(expected, dict) and "$ne" in expected:
+            if actual == expected["$ne"]:
+                return False
+            continue
+
         if actual != expected:
             return False
 
@@ -457,3 +462,40 @@ def test_cpu_repository_lists_rankings_with_sort_and_filters() -> None:
     assert result.items[0].sku == "100-100001277WOF"
     assert result.items[0].ranking is not None
     assert result.items[0].ranking.game_percentile == 100.0
+
+
+def test_cpu_repository_lists_match_candidates_and_can_filter_by_owned_sku() -> None:
+    from app.repositories.cpu_repository import CpuRepository
+
+    repository = CpuRepository(
+        FakeCollection(
+            [
+                {
+                    "_id": 1,
+                    "name": "AMD Ryzen 7 7800X3D",
+                    "sku": "100-000000910",
+                    "ranking": {
+                        "game_score": 4012,
+                        "game_percentile": 95.4,
+                        "performance_tier": "S",
+                    },
+                },
+                {
+                    "_id": 2,
+                    "name": "CPU Sem Ranking",
+                    "sku": "cpu-sem-ranking",
+                    "ranking": {
+                        "game_score": None,
+                        "game_percentile": None,
+                        "performance_tier": None,
+                    },
+                },
+            ]
+        )
+    )
+
+    all_candidates = repository.list_match_candidates()
+    owned_candidates = repository.list_match_candidates(sku="cpu-sem-ranking")
+
+    assert [cpu.sku for cpu in all_candidates] == ["100-000000910"]
+    assert [cpu.sku for cpu in owned_candidates] == ["cpu-sem-ranking"]

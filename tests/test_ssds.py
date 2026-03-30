@@ -220,6 +220,11 @@ def _matches_query(document: dict[str, Any], query: dict[str, Any]) -> bool:
                 return False
             continue
 
+        if isinstance(expected, dict) and "$ne" in expected:
+            if actual == expected["$ne"]:
+                return False
+            continue
+
         if actual != expected:
             return False
 

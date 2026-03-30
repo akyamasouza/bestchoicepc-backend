@@ -197,6 +197,11 @@ def _matches_query(document: dict[str, Any], query: dict[str, Any]) -> bool:
                 return False
             continue
 
+        if isinstance(expected, dict) and "$ne" in expected:
+            if actual == expected["$ne"]:
+                return False
+            continue
+
         if actual != expected:
             return False
 
@@ -418,3 +423,42 @@ def test_gpu_repository_lists_rankings_with_sort_and_filters() -> None:
     assert result.items[0].sku == "geforce-rtx-5090"
     assert result.items[0].ranking is not None
     assert result.items[0].ranking.game_percentile == 100.0
+
+
+def test_gpu_repository_lists_match_candidates_and_can_filter_by_owned_sku() -> None:
+    from app.repositories.gpu_repository import GpuRepository
+
+    repository = GpuRepository(
+        FakeCollection(
+            [
+                {
+                    "_id": 1,
+                    "name": "GeForce RTX 5090",
+                    "sku": "geforce-rtx-5090",
+                    "memory_size_mb": 32768,
+                    "ranking": {
+                        "game_score": 38975,
+                        "game_percentile": 100.0,
+                        "performance_tier": "S",
+                    },
+                },
+                {
+                    "_id": 2,
+                    "name": "GPU Sem Ranking",
+                    "sku": "gpu-sem-ranking",
+                    "memory_size_mb": 8192,
+                    "ranking": {
+                        "game_score": None,
+                        "game_percentile": None,
+                        "performance_tier": None,
+                    },
+                },
+            ]
+        )
+    )
+
+    all_candidates = repository.list_match_candidates()
+    owned_candidates = repository.list_match_candidates(sku="gpu-sem-ranking")
+
+    assert [gpu.sku for gpu in all_candidates] == ["geforce-rtx-5090"]
+    assert [gpu.sku for gpu in owned_candidates] == ["gpu-sem-ranking"]

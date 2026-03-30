@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pymongo.collection import Collection
 
+from app.repositories.candidate_query import CandidateQueryStrategy, execute_candidate_query
 from app.repositories.ranking_query import RankingQueryStrategy, execute_ranking_query
 from app.schemas.cpu import (
     CpuBenchmark,
@@ -16,6 +17,15 @@ from app.schemas.cpu import (
 class CpuRepository:
     def __init__(self, collection: Collection):
         self.collection = collection
+        self.match_candidate_strategy = CandidateQueryStrategy[CpuListItem](
+            projection={
+                "_id": 1,
+                "name": 1,
+                "sku": 1,
+                "ranking": 1,
+            },
+            map_item_fn=self._to_list_item,
+        )
         self.ranking_strategy = RankingQueryStrategy[
             CpuRankingListItem,
             CpuRankingListResponse,
@@ -47,6 +57,13 @@ class CpuRepository:
         ).sort("name", 1)
 
         return [self._to_list_item(document) for document in cursor]
+
+    def list_match_candidates(self, *, sku: str | None = None) -> list[CpuListItem]:
+        return execute_candidate_query(
+            self.collection,
+            self.match_candidate_strategy,
+            sku=sku,
+        )
 
     def list_rankings(
         self,

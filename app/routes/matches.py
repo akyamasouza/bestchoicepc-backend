@@ -57,8 +57,20 @@ def list_matches(
     gpu_repository: GpuRepository = Depends(get_gpu_repository),
     daily_offer_repository: DailyOfferRepository = Depends(get_daily_offer_repository),
 ) -> MatchListResponse:
-    cpu_candidates = [_to_cpu_match_candidate(item) for item in cpu_repository.list_cpus()]
-    gpu_candidates = [_to_gpu_match_candidate(item) for item in gpu_repository.list_gpus()]
+    cpu_candidates = [
+        _to_cpu_match_candidate(item)
+        for item in cpu_repository.list_match_candidates(sku=request.owned_cpu_sku)
+    ]
+    gpu_candidates = [
+        _to_gpu_match_candidate(item)
+        for item in gpu_repository.list_match_candidates(sku=request.owned_gpu_sku)
+    ]
+
+    if request.owned_cpu_sku is not None and not cpu_candidates:
+        raise HTTPException(status_code=400, detail=f"CPU ownada nao encontrada: {request.owned_cpu_sku}")
+    if request.owned_gpu_sku is not None and not gpu_candidates:
+        raise HTTPException(status_code=400, detail=f"GPU ownada nao encontrada: {request.owned_gpu_sku}")
+
     offer_snapshots = [
         *[_to_offer_snapshot(offer) for offer in daily_offer_repository.list_today(entity_type="cpu")],
         *[_to_offer_snapshot(offer) for offer in daily_offer_repository.list_today(entity_type="gpu")],

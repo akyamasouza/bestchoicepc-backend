@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pymongo.collection import Collection
 
+from app.repositories.candidate_query import CandidateQueryStrategy, execute_candidate_query
 from app.repositories.ranking_query import RankingQueryStrategy, execute_ranking_query
 from app.schemas.gpu import (
     GpuBenchmark,
@@ -16,6 +17,16 @@ from app.schemas.gpu import (
 class GpuRepository:
     def __init__(self, collection: Collection):
         self.collection = collection
+        self.match_candidate_strategy = CandidateQueryStrategy[GpuListItem](
+            projection={
+                "_id": 1,
+                "name": 1,
+                "sku": 1,
+                "memory_size_mb": 1,
+                "ranking": 1,
+            },
+            map_item_fn=self._to_list_item,
+        )
         self.ranking_strategy = RankingQueryStrategy[
             GpuRankingListItem,
             GpuRankingListResponse,
@@ -52,6 +63,13 @@ class GpuRepository:
         ).sort("name", 1)
 
         return [self._to_list_item(document) for document in cursor]
+
+    def list_match_candidates(self, *, sku: str | None = None) -> list[GpuListItem]:
+        return execute_candidate_query(
+            self.collection,
+            self.match_candidate_strategy,
+            sku=sku,
+        )
 
     def list_rankings(
         self,
