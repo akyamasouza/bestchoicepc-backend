@@ -37,5 +37,9 @@ def get_ssd_collection() -> Collection:
     return get_database()["ssds"]
 
 
+def get_psu_collection() -> Collection:
+    return get_database()["psus"]
+
+
 def get_daily_offer_collection() -> Collection:
     return get_database()["daily_offers"]
