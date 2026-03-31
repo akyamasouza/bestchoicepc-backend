@@ -87,7 +87,7 @@ def test_build_rams_writes_python_file(monkeypatch) -> None:
 
     monkeypatch.setattr(
         "app.scripts.build_rams.fetch_kabum_products",
-        lambda page_limit=None: [SAMPLE_PRODUCT_SINGLE, SAMPLE_PRODUCT_KIT],
+        lambda category_url, page_limit=None: [SAMPLE_PRODUCT_SINGLE, SAMPLE_PRODUCT_KIT],
     )
 
     try:

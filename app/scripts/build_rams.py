@@ -1,105 +1,16 @@
 from __future__ import annotations
 
 import argparse
-import json
-import math
 import re
 from pathlib import Path
 from pprint import pformat
 from typing import Any
 
-import httpx
+from app.scripts.kabum_catalog import fetch_kabum_products
 
 
 KABUM_CATEGORY_URL = "https://www.kabum.com.br/hardware/memoria-ram"
 DEFAULT_OUTPUT_PATH = Path("app/data/rams.py")
-
-
-def fetch_kabum_category_payload(*, url: str = KABUM_CATEGORY_URL, timeout: float = 30.0) -> dict[str, Any]:
-    response = httpx.get(
-        url,
-        timeout=timeout,
-        follow_redirects=True,
-        headers={"User-Agent": "bestchoicepc-backend/1.0 (+local build script)"},
-    )
-    response.raise_for_status()
-
-    match = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', response.text, re.DOTALL)
-    if match is None:
-        raise ValueError("Nao foi possivel localizar o __NEXT_DATA__ da KaBuM! para memorias.")
-
-    payload = json.loads(match.group(1))
-    return json.loads(payload["props"]["pageProps"]["data"])
-
-
-def fetch_kabum_page_payload(
-    *,
-    category_url: str = KABUM_CATEGORY_URL,
-    page_number: int,
-    page_size: int,
-    timeout: float = 30.0,
-    client: httpx.Client | None = None,
-) -> dict[str, Any]:
-    params = {"page_number": page_number, "page_size": page_size}
-    request_headers = {"User-Agent": "bestchoicepc-backend/1.0 (+local build script)"}
-
-    if client is None:
-        response = httpx.get(
-            category_url,
-            params=params,
-            timeout=timeout,
-            follow_redirects=True,
-            headers=request_headers,
-        )
-    else:
-        response = client.get(category_url, params=params)
-
-    response.raise_for_status()
-
-    match = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', response.text, re.DOTALL)
-    if match is None:
-        raise ValueError("Nao foi possivel localizar o __NEXT_DATA__ da KaBuM! para memorias.")
-
-    payload = json.loads(match.group(1))
-    return json.loads(payload["props"]["pageProps"]["data"])
-
-
-def fetch_kabum_products(
-    *,
-    category_url: str = KABUM_CATEGORY_URL,
-    page_size: int = 100,
-    page_limit: int | None = None,
-    timeout: float = 30.0,
-) -> list[dict[str, Any]]:
-    initial_payload = fetch_kabum_page_payload(
-        category_url=category_url,
-        page_number=1,
-        page_size=page_size,
-        timeout=timeout,
-    )
-    total_items = int(initial_payload["catalogServer"]["meta"]["totalItemsCount"])
-    total_pages = max(1, math.ceil(total_items / page_size))
-
-    if page_limit is not None:
-        total_pages = min(total_pages, page_limit)
-
-    products: list[dict[str, Any]] = list(initial_payload["catalogServer"].get("data") or [])
-    with httpx.Client(
-        timeout=timeout,
-        follow_redirects=True,
-        headers={"User-Agent": "bestchoicepc-backend/1.0 (+local build script)"},
-    ) as client:
-        for page_number in range(2, total_pages + 1):
-            page_payload = fetch_kabum_page_payload(
-                category_url=category_url,
-                page_number=page_number,
-                page_size=page_size,
-                timeout=timeout,
-                client=client,
-            )
-            products.extend(page_payload["catalogServer"].get("data") or [])
-
-    return products
 
 
 def parse_kabum_products(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -172,7 +83,7 @@ def build_rams(
     output_path: Path = DEFAULT_OUTPUT_PATH,
     page_limit: int | None = None,
 ) -> list[dict[str, Any]]:
-    products = fetch_kabum_products(page_limit=page_limit)
+    products = fetch_kabum_products(category_url=KABUM_CATEGORY_URL, page_limit=page_limit)
     rams = parse_kabum_products(products)
     write_rams_module(rams, output_path=output_path)
     return rams
