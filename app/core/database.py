@@ -51,3 +51,7 @@ def get_psu_collection() -> Collection:
 
 def get_daily_offer_collection() -> Collection:
     return get_database()["daily_offers"]
+
+
+def get_review_consensus_cache_collection() -> Collection:
+    return get_database()["review_consensus_cache"]

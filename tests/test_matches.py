@@ -5,10 +5,17 @@ from app.routes.matches import (
     get_cpu_repository,
     get_daily_offer_repository,
     get_gpu_repository,
+    get_review_consensus_lookup_service,
 )
 from app.schemas.cpu import CpuListItem, CpuRanking
 from app.schemas.daily_offer import DailyOffer
 from app.schemas.gpu import GpuListItem, GpuRanking
+from app.services.review_consensus_lookup import ReviewConsensusLookup
+from app.services.youtube_review_consensus import (
+    MatchReviewedGame,
+    MatchReviewConsensus,
+    YoutubeVideoReference,
+)
 
 
 class FakeCpuRepository:
@@ -180,6 +187,61 @@ class FakeDailyOfferRepository:
         return []
 
 
+class FakeReviewConsensusLookupService:
+    def get_or_start_lookup(
+        self,
+        *,
+        cpu_sku: str,
+        cpu_name: str,
+        gpu_sku: str,
+        gpu_name: str,
+        background_tasks,
+        force_refresh: bool = False,
+    ) -> ReviewConsensusLookup:
+        if "Ryzen 5 7600" not in cpu_name or "RTX 4070 Super" not in gpu_name:
+            return ReviewConsensusLookup(
+                status="no_consensus",
+                reason="insufficient_evidence",
+                review_consensus=None,
+            )
+
+        return ReviewConsensusLookup(
+            status="ready",
+            reason=None,
+            review_consensus=MatchReviewConsensus(
+                insight="Consenso dos reviews sugere que o par aparece como bem equilibrado. Nos trechos com FPS explicito, a media observada ficou em torno de 91.5 FPS.",
+                warnings=("Os reviews destacam cenarios com DLSS.",),
+                confidence="high",
+                references=(
+                    YoutubeVideoReference(
+                        title="RTX 4070 Super + Ryzen 5 7600 benchmark",
+                        url="https://www.youtube.com/watch?v=video-1",
+                        channel="Channel 1",
+                    ),
+                    YoutubeVideoReference(
+                        title="Ryzen 5 7600 with RTX 4070 Super review",
+                        url="https://www.youtube.com/watch?v=video-2",
+                        channel="Channel 2",
+                    ),
+                ),
+                source_count=2,
+                average_explicit_fps=91.5,
+                tested_games=(
+                    MatchReviewedGame(
+                        name="Cyberpunk 2077",
+                        resolution="1440p",
+                        avg_fps=92.0,
+                    ),
+                    MatchReviewedGame(
+                        name="Alan Wake 2",
+                        resolution="1440p",
+                        avg_fps=91.0,
+                    ),
+                ),
+            ),
+        )
+
+
 def test_list_matches_returns_ranked_pairs() -> None:
     cpu_repository = FakeCpuRepository()
     gpu_repository = FakeGpuRepository()
@@ -229,6 +291,74 @@ def test_list_matches_returns_ranked_pairs() -> None:
     assert "faixa de desempenho adequada para 1440p" in top_match["reasons"]
     assert "preco atual bem posicionado no historico" in top_match["reasons"]
     assert "vram adequada para 1440p" in top_match["reasons"]
+    assert top_match["review_consensus"] is None
+    assert top_match["review_consensus_status"] == "not_requested"
+    assert top_match["review_consensus_reason"] is None
+
+
+def test_list_matches_can_include_review_consensus() -> None:
+    cpu_repository = FakeCpuRepository()
+    gpu_repository = FakeGpuRepository()
+    app.dependency_overrides[get_cpu_repository] = lambda: cpu_repository
+    app.dependency_overrides[get_gpu_repository] = lambda: gpu_repository
+    app.dependency_overrides[get_daily_offer_repository] = FakeDailyOfferRepository
+    app.dependency_overrides[get_review_consensus_lookup_service] = FakeReviewConsensusLookupService
+    client = TestClient(app)
+
+    response = client.post(
+        "/matches",
+        json={
+            "use_case": "aaa",
+            "resolution": "1440p",
+            "budget": 5500,
+            "limit": 2,
+            "include_review_consensus": True,
+            "review_consensus_limit": 1,
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    top_match = payload["items"][0]
+
+    assert top_match["review_consensus"] == {
+        "insight": "Consenso dos reviews sugere que o par aparece como bem equilibrado. Nos trechos com FPS explicito, a media observada ficou em torno de 91.5 FPS.",
+        "warnings": ["Os reviews destacam cenarios com DLSS."],
+        "confidence": "high",
+        "references": [
+            {
+                "title": "RTX 4070 Super + Ryzen 5 7600 benchmark",
+                "url": "https://www.youtube.com/watch?v=video-1",
+                "channel": "Channel 1",
+            },
+            {
+                "title": "Ryzen 5 7600 with RTX 4070 Super review",
+                "url": "https://www.youtube.com/watch?v=video-2",
+                "channel": "Channel 2",
+            },
+        ],
+        "source_count": 2,
+        "average_explicit_fps": 91.5,
+        "tested_games": [
+            {
+                "name": "Cyberpunk 2077",
+                "resolution": "1440p",
+                "avg_fps": 92.0,
+            },
+            {
+                "name": "Alan Wake 2",
+                "resolution": "1440p",
+                "avg_fps": 91.0,
+            },
+        ],
+    }
+    assert top_match["review_consensus_status"] == "ready"
+    assert top_match["review_consensus_reason"] is None
+    assert payload["items"][1]["review_consensus"] is None
+    assert payload["items"][1]["review_consensus_status"] == "not_requested"
+    assert payload["items"][1]["review_consensus_reason"] is None
 
 
 def test_list_matches_returns_bad_request_for_unknown_owned_cpu() -> None:
@@ -256,4 +386,62 @@ def test_list_matches_returns_bad_request_for_unknown_owned_cpu() -> None:
     assert response.status_code == 400
     assert response.json() == {
         "detail": "CPU ownada nao encontrada: cpu-inexistente",
+    }
+
+
+def test_get_match_review_consensus_returns_lookup_payload() -> None:
+    app.dependency_overrides[get_cpu_repository] = FakeCpuRepository
+    app.dependency_overrides[get_gpu_repository] = FakeGpuRepository
+    app.dependency_overrides[get_review_consensus_lookup_service] = FakeReviewConsensusLookupService
+    client = TestClient(app)
+
+    response = client.post(
+        "/matches/review-consensus",
+        json={
+            "cpu_sku": "ryzen-5-7600",
+            "gpu_sku": "rtx-4070-super",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "cpu_sku": "ryzen-5-7600",
+        "gpu_sku": "rtx-4070-super",
+        "lookup": {
+            "status": "ready",
+            "reason": None,
+            "review_consensus": {
+                "insight": "Consenso dos reviews sugere que o par aparece como bem equilibrado. Nos trechos com FPS explicito, a media observada ficou em torno de 91.5 FPS.",
+                "warnings": ["Os reviews destacam cenarios com DLSS."],
+                "confidence": "high",
+                "references": [
+                    {
+                        "title": "RTX 4070 Super + Ryzen 5 7600 benchmark",
+                        "url": "https://www.youtube.com/watch?v=video-1",
+                        "channel": "Channel 1",
+                    },
+                    {
+                        "title": "Ryzen 5 7600 with RTX 4070 Super review",
+                        "url": "https://www.youtube.com/watch?v=video-2",
+                        "channel": "Channel 2",
+                    },
+                ],
+                "source_count": 2,
+                "average_explicit_fps": 91.5,
+                "tested_games": [
+                    {
+                        "name": "Cyberpunk 2077",
+                        "resolution": "1440p",
+                        "avg_fps": 92.0,
+                    },
+                    {
+                        "name": "Alan Wake 2",
+                        "resolution": "1440p",
+                        "avg_fps": 91.0,
+                    },
+                ],
+            },
+        },
     }

@@ -35,7 +35,6 @@ class Settings(BaseSettings):
         default=".telegram/session",
         validation_alias=AliasChoices("TELEGRAM_SESSION_PATH"),
     )
-
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
