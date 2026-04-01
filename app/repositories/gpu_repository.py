@@ -1,13 +1,16 @@
 import re
 from typing import Any, Literal
 
+from pymongo import ASCENDING
 from pymongo.collection import Collection
 
 from app.repositories.candidate_query import CandidateQueryStrategy, execute_candidate_query
+from app.repositories.paged_query import PagedQueryStrategy, execute_paged_query
 from app.repositories.ranking_query import RankingQueryStrategy, execute_ranking_query
 from app.schemas.gpu import (
     GpuBenchmark,
     GpuListItem,
+    GpuListResponse,
     GpuRanking,
     GpuRankingListItem,
     GpuRankingListResponse,
@@ -17,6 +20,26 @@ from app.schemas.gpu import (
 class GpuRepository:
     def __init__(self, collection: Collection):
         self.collection = collection
+        self.list_strategy = PagedQueryStrategy[GpuListItem, GpuListResponse](
+            projection={
+                "_id": 1,
+                "name": 1,
+                "sku": 1,
+                "bus_interface": 1,
+                "memory_size_mb": 1,
+                "core_clock_mhz": 1,
+                "memory_clock_mhz": 1,
+                "max_tdp_w": 1,
+                "category": 1,
+                "benchmark": 1,
+                "ranking": 1,
+            },
+            build_query_fn=self._build_list_query,
+            map_item_fn=self._to_list_item,
+            build_response_fn=self._build_list_response,
+            sort_fields="name",
+            sort_direction=ASCENDING,
+        )
         self.match_candidate_strategy = CandidateQueryStrategy[GpuListItem](
             projection={
                 "_id": 1,
@@ -45,24 +68,54 @@ class GpuRepository:
             build_response_fn=self._build_rankings_response,
         )
 
-    def list_gpus(self) -> list[GpuListItem]:
-        cursor = self.collection.find(
-            {},
-            {
-                "name": 1,
-                "sku": 1,
-                "bus_interface": 1,
-                "memory_size_mb": 1,
-                "core_clock_mhz": 1,
-                "memory_clock_mhz": 1,
-                "max_tdp_w": 1,
-                "category": 1,
-                "benchmark": 1,
-                "ranking": 1,
+    def list_gpus(
+        self,
+        *,
+        brand: str | None = None,
+        category: str | None = None,
+        q: str | None = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> GpuListResponse:
+        return execute_paged_query(
+            self.collection,
+            self.list_strategy,
+            filters={
+                "brand": brand,
+                "category": category,
+                "q": q,
             },
-        ).sort("name", 1)
+            page=page,
+            limit=limit,
+        )
 
-        return [self._to_list_item(document) for document in cursor]
+    def _build_list_query(self, filters: dict[str, Any]) -> dict[str, Any]:
+        brand = filters.get("brand")
+        category = filters.get("category")
+        q = filters.get("q")
+        query: dict[str, Any] = {}
+
+        if brand is not None:
+            query["brand"] = {"$regex": f"^{re.escape(brand.strip())}$", "$options": "i"}
+        if category is not None:
+            query["category"] = {"$regex": f"^{re.escape(category.strip())}$", "$options": "i"}
+        if q is not None and q.strip():
+            normalized_query = re.escape(q.strip())
+            query["$or"] = [
+                {"name": {"$regex": normalized_query, "$options": "i"}},
+                {"sku": {"$regex": normalized_query, "$options": "i"}},
+            ]
+
+        return query
+
+    @staticmethod
+    def _build_list_response(
+        items: list[GpuListItem],
+        page: int,
+        limit: int,
+        total: int,
+    ) -> GpuListResponse:
+        return GpuListResponse(items=items, page=page, limit=limit, total=total)
 
     def list_match_candidates(self, *, sku: str | None = None) -> list[GpuListItem]:
         return execute_candidate_query(

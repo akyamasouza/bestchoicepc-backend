@@ -28,6 +28,13 @@ class GpuListItem(BaseModel):
     ranking: GpuRanking | None = None
 
 
+class GpuListResponse(BaseModel):
+    items: list[GpuListItem]
+    page: int
+    limit: int
+    total: int
+
+
 class GpuRankingListItem(BaseModel):
     id: str
     name: str

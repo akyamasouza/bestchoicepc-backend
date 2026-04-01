@@ -26,6 +26,13 @@ class CpuListItem(BaseModel):
     ranking: CpuRanking | None = None
 
 
+class CpuListResponse(BaseModel):
+    items: list[CpuListItem]
+    page: int
+    limit: int
+    total: int
+
+
 class CpuRankingListItem(BaseModel):
     id: str
     name: str

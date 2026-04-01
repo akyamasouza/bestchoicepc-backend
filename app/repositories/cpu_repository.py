@@ -1,13 +1,16 @@
 import re
 from typing import Any, Literal
 
+from pymongo import ASCENDING
 from pymongo.collection import Collection
 
 from app.repositories.candidate_query import CandidateQueryStrategy, execute_candidate_query
+from app.repositories.paged_query import PagedQueryStrategy, execute_paged_query
 from app.repositories.ranking_query import RankingQueryStrategy, execute_ranking_query
 from app.schemas.cpu import (
     CpuBenchmark,
     CpuListItem,
+    CpuListResponse,
     CpuRanking,
     CpuRankingListItem,
     CpuRankingListResponse,
@@ -17,6 +20,23 @@ from app.schemas.cpu import (
 class CpuRepository:
     def __init__(self, collection: Collection):
         self.collection = collection
+        self.list_strategy = PagedQueryStrategy[CpuListItem, CpuListResponse](
+            projection={
+                "_id": 1,
+                "name": 1,
+                "sku": 1,
+                "socket": 1,
+                "cores": 1,
+                "threads": 1,
+                "benchmark": 1,
+                "ranking": 1,
+            },
+            build_query_fn=self._build_list_query,
+            map_item_fn=self._to_list_item,
+            build_response_fn=self._build_list_response,
+            sort_fields="name",
+            sort_direction=ASCENDING,
+        )
         self.match_candidate_strategy = CandidateQueryStrategy[CpuListItem](
             projection={
                 "_id": 1,
@@ -42,21 +62,54 @@ class CpuRepository:
             build_response_fn=self._build_rankings_response,
         )
 
-    def list_cpus(self) -> list[CpuListItem]:
-        cursor = self.collection.find(
-            {},
-            {
-                "name": 1,
-                "sku": 1,
-                "socket": 1,
-                "cores": 1,
-                "threads": 1,
-                "benchmark": 1,
-                "ranking": 1,
+    def list_cpus(
+        self,
+        *,
+        brand: str | None = None,
+        socket: str | None = None,
+        q: str | None = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> CpuListResponse:
+        return execute_paged_query(
+            self.collection,
+            self.list_strategy,
+            filters={
+                "brand": brand,
+                "socket": socket,
+                "q": q,
             },
-        ).sort("name", 1)
+            page=page,
+            limit=limit,
+        )
 
-        return [self._to_list_item(document) for document in cursor]
+    def _build_list_query(self, filters: dict[str, Any]) -> dict[str, Any]:
+        brand = filters.get("brand")
+        socket = filters.get("socket")
+        q = filters.get("q")
+        query: dict[str, Any] = {}
+
+        if brand is not None:
+            query["name"] = {"$regex": rf"^{re.escape(brand.strip())}\b", "$options": "i"}
+        if socket is not None:
+            query["socket"] = {"$regex": f"^{re.escape(socket.strip())}$", "$options": "i"}
+        if q is not None and q.strip():
+            normalized_query = re.escape(q.strip())
+            query["$or"] = [
+                {"name": {"$regex": normalized_query, "$options": "i"}},
+                {"sku": {"$regex": normalized_query, "$options": "i"}},
+            ]
+
+        return query
+
+    @staticmethod
+    def _build_list_response(
+        items: list[CpuListItem],
+        page: int,
+        limit: int,
+        total: int,
+    ) -> CpuListResponse:
+        return CpuListResponse(items=items, page=page, limit=limit, total=total)
 
     def list_match_candidates(self, *, sku: str | None = None) -> list[CpuListItem]:
         return execute_candidate_query(
