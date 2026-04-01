@@ -19,12 +19,26 @@ class CandidateQueryStrategy(Generic[ItemT]):
         return self.map_item_fn(document)
 
 
+from bson import ObjectId
+
 def execute_candidate_query(
     collection: Collection,
     strategy: CandidateQueryStrategy[ItemT],
     *,
-    sku: str | None,
+    id: str | None = None,
+    sku: str | None = None,
 ) -> list[ItemT]:
-    query: dict[str, Any] = {"sku": sku} if sku is not None else {"ranking.game_percentile": {"$ne": None}}
+    if id is not None:
+        try:
+            query: dict[str, Any] = {"_id": ObjectId(id)}
+        except Exception:
+            # Se o ID nao for um ObjectId valido, tenta como string pura ou falha suave
+            query = {"_id": id}
+    elif sku is not None:
+        query = {"sku": sku}
+    else:
+        query = {"ranking.game_percentile": {"$ne": None}}
+
     cursor = collection.find(query, strategy.projection).sort("name", ASCENDING)
     return [strategy.map_item(document) for document in cursor]
+

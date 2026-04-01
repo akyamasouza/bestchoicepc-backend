@@ -29,13 +29,20 @@ class EntityMatcher:
         "series",
     }
 
-    def mismatch_reason(self, *, entity_name: str, raw_text: str) -> str | None:
+    def mismatch_reason(self, *, entity_name: str, entity_sku: str, raw_text: str) -> str | None:
         title_tokens = set(self._tokenize(self._extract_title(raw_text)))
         entity_tokens = set(self._tokenize(entity_name))
+        
+        # O SKU (ID) e o identificador mais robusto. 
+        # Ex: 'rtx-4070-super' gera tokens ['rtx', '4070', 'super']
+        # Se um desses tokens nao estiver na oferta, o match e invalido por definicao.
+        sku_tokens = set(self._tokenize(entity_sku.replace("-", " ")))
+
+        merged_tokens = entity_tokens | sku_tokens
 
         required_tokens = {
             token
-            for token in entity_tokens
+            for token in merged_tokens
             if token not in self._STOPWORDS
             and token not in self._PROTECTED_TOKENS
             and not token.endswith("gb")
@@ -46,7 +53,8 @@ class EntityMatcher:
         if missing_required:
             return f"mensagem rejeitada por falta de tokens obrigatorios: {', '.join(missing_required)}"
 
-        entity_variants = {token for token in entity_tokens if token in self._PROTECTED_TOKENS}
+        # Validacao estrita de discriminadores contidos no SKU
+        entity_variants = {token for token in merged_tokens if token in self._PROTECTED_TOKENS}
         title_variants = {token for token in title_tokens if token in self._PROTECTED_TOKENS}
 
         extra_variants = sorted(title_variants - entity_variants)

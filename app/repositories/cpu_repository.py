@@ -111,10 +111,11 @@ class CpuRepository:
     ) -> CpuListResponse:
         return CpuListResponse(items=items, page=page, limit=limit, total=total)
 
-    def list_match_candidates(self, *, sku: str | None = None) -> list[CpuListItem]:
+    def list_match_candidates(self, *, id: str | None = None, sku: str | None = None) -> list[CpuListItem]:
         return execute_candidate_query(
             self.collection,
             self.match_candidate_strategy,
+            id=id,
             sku=sku,
         )
 

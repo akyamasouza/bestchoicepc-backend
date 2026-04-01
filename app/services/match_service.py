@@ -6,17 +6,19 @@ from math import log
 
 @dataclass(frozen=True, slots=True)
 class CpuMatchCandidate:
-    sku: str
+    id: str
     name: str
     ranking_percentile: float | None
+
 
 
 @dataclass(frozen=True, slots=True)
 class GpuMatchCandidate:
-    sku: str
+    id: str
     name: str
     ranking_percentile: float | None
     memory_size_mb: int | None = None
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,17 +36,20 @@ class MatchQuery:
     use_case: str
     resolution: str
     budget: float | None = None
-    owned_cpu_sku: str | None = None
-    owned_gpu_sku: str | None = None
+    owned_cpu_id: str | None = None
+    owned_gpu_id: str | None = None
     limit: int = 10
+
 
 
 @dataclass(frozen=True, slots=True)
 class MatchComponent:
+    id: str
     sku: str
     name: str
     ranking_percentile: float
     price: float | None
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +132,8 @@ class MatchService:
         "hybrid": (0.3, 0.22, 0.28, 0.1, 0.1),
         "value": (0.2, 0.2, 0.35, 0.15, 0.1),
     }
+    # Candidatos abaixo deste percentil nunca atingem score relevante em nenhum use_case
+    _MINIMUM_PERCENTILE_THRESHOLD = 20.0
 
     def find_matches(
         self,
@@ -139,15 +146,23 @@ class MatchService:
         normalized_use_case = self._normalize_use_case(query.use_case)
         normalized_resolution = self._normalize_resolution(query.resolution)
 
-        available_cpus = [cpu for cpu in cpus if cpu.ranking_percentile is not None]
-        available_gpus = [gpu for gpu in gpus if gpu.ranking_percentile is not None]
+        available_cpus = [
+            cpu for cpu in cpus
+            if cpu.ranking_percentile is not None
+            and cpu.ranking_percentile >= self._MINIMUM_PERCENTILE_THRESHOLD
+        ]
+        available_gpus = [
+            gpu for gpu in gpus
+            if gpu.ranking_percentile is not None
+            and gpu.ranking_percentile >= self._MINIMUM_PERCENTILE_THRESHOLD
+        ]
         if not available_cpus or not available_gpus:
             return []
 
-        if query.owned_cpu_sku is not None:
-            available_cpus = self._restrict_to_owned_cpu(available_cpus, query.owned_cpu_sku)
-        if query.owned_gpu_sku is not None:
-            available_gpus = self._restrict_to_owned_gpu(available_gpus, query.owned_gpu_sku)
+        if query.owned_cpu_id is not None:
+            available_cpus = self._restrict_to_owned_cpu(available_cpus, query.owned_cpu_id)
+        if query.owned_gpu_id is not None:
+            available_gpus = self._restrict_to_owned_gpu(available_gpus, query.owned_gpu_id)
 
         resolved_offers = self._resolve_offers(offers)
         cpu_value_index = self._build_value_index(
@@ -160,6 +175,19 @@ class MatchService:
             entity_type="gpu",
             resolved_offers=resolved_offers,
         )
+
+        # Pre-filtra pares cujo preco de compra ja excede o budget antes de calcular scores
+        if query.budget is not None:
+            available_cpus, available_gpus = self._prefilter_by_budget(
+                cpus=available_cpus,
+                gpus=available_gpus,
+                resolved_offers=resolved_offers,
+                budget=query.budget,
+                owned_cpu_id=query.owned_cpu_id,
+                owned_gpu_id=query.owned_gpu_id,
+            )
+            if not available_cpus or not available_gpus:
+                return []
 
         results: list[MatchResult] = []
 
@@ -193,8 +221,9 @@ class MatchService:
         cpu_value_index: dict[str, float],
         gpu_value_index: dict[str, float],
     ) -> MatchResult | None:
-        cpu_offer = resolved_offers.get(("cpu", cpu.sku))
-        gpu_offer = resolved_offers.get(("gpu", gpu.sku))
+        cpu_offer = resolved_offers.get(("cpu", cpu.id))
+        gpu_offer = resolved_offers.get(("gpu", gpu.id))
+
 
         pair_price = self._sum_prices(
             cpu_offer.price if cpu_offer is not None else None,
@@ -203,8 +232,8 @@ class MatchService:
         purchase_price = self._resolve_purchase_price(
             cpu_offer=cpu_offer,
             gpu_offer=gpu_offer,
-            owned_cpu_sku=query.owned_cpu_sku,
-            owned_gpu_sku=query.owned_gpu_sku,
+            owned_cpu_id=query.owned_cpu_id,
+            owned_gpu_id=query.owned_gpu_id,
         )
 
         if query.budget is not None and (purchase_price is None or purchase_price > query.budget):
@@ -256,17 +285,18 @@ class MatchService:
 
         return MatchResult(
             cpu=MatchComponent(
-                sku=cpu.sku,
+                id=cpu.id,
                 name=cpu.name,
                 ranking_percentile=cpu_score,
                 price=cpu_offer.price if cpu_offer is not None else None,
             ),
             gpu=MatchComponent(
-                sku=gpu.sku,
+                id=gpu.id,
                 name=gpu.name,
                 ranking_percentile=gpu_score,
                 price=gpu_offer.price if gpu_offer is not None else None,
             ),
+
             score=score,
             label=self._label_for_score(score),
             purchase_price=purchase_price,
@@ -285,18 +315,70 @@ class MatchService:
         )
 
     @staticmethod
-    def _restrict_to_owned_cpu(cpus: list[CpuMatchCandidate], owned_cpu_sku: str) -> list[CpuMatchCandidate]:
-        owned = [cpu for cpu in cpus if cpu.sku == owned_cpu_sku]
+    def _restrict_to_owned_cpu(cpus: list[CpuMatchCandidate], owned_cpu_id: str) -> list[CpuMatchCandidate]:
+        owned = [cpu for cpu in cpus if cpu.id == owned_cpu_id]
         if not owned:
-            raise ValueError(f"CPU ownada nao encontrada: {owned_cpu_sku}")
+            raise ValueError(f"CPU ownada nao encontrada: {owned_cpu_id}")
         return owned
 
+
     @staticmethod
-    def _restrict_to_owned_gpu(gpus: list[GpuMatchCandidate], owned_gpu_sku: str) -> list[GpuMatchCandidate]:
-        owned = [gpu for gpu in gpus if gpu.sku == owned_gpu_sku]
+    def _restrict_to_owned_gpu(gpus: list[GpuMatchCandidate], owned_gpu_id: str) -> list[GpuMatchCandidate]:
+        owned = [gpu for gpu in gpus if gpu.id == owned_gpu_id]
         if not owned:
-            raise ValueError(f"GPU ownada nao encontrada: {owned_gpu_sku}")
+            raise ValueError(f"GPU ownada nao encontrada: {owned_gpu_id}")
         return owned
+
+
+    @staticmethod
+    def _prefilter_by_budget(
+        *,
+        cpus: list[CpuMatchCandidate],
+        gpus: list[GpuMatchCandidate],
+        resolved_offers: dict[tuple[str, str], _ResolvedOffer],
+        budget: float,
+        owned_cpu_id: str | None,
+        owned_gpu_id: str | None,
+    ) -> tuple[list[CpuMatchCandidate], list[GpuMatchCandidate]]:
+
+        """Remove CPUs/GPUs cujo preco individual ja excede o budget disponivel,
+        eliminando pares impossiveis antes do loop de scoring."""
+        if owned_cpu_id is not None and owned_gpu_id is not None:
+            # Ambas ownadas: purchase_price sera 0, budget nunca excedido
+            return cpus, gpus
+
+
+        if owned_cpu_id is not None:
+            # Apenas GPU precisa caber no budget
+
+            filtered_gpus = [
+                gpu for gpu in gpus
+                if (offer := resolved_offers.get(("gpu", gpu.id))) is None
+                or offer.price <= budget
+            ]
+            return cpus, filtered_gpus
+
+        if owned_gpu_id is not None:
+            # Apenas CPU precisa caber no budget
+            filtered_cpus = [
+                cpu for cpu in cpus
+                if (offer := resolved_offers.get(("cpu", cpu.id))) is None
+                or offer.price <= budget
+            ]
+            return filtered_cpus, gpus
+
+        # Ambos precisam ser comprados: filtra candidatos cujo preco sozinho ja excede o budget
+        filtered_cpus = [
+            cpu for cpu in cpus
+            if (offer := resolved_offers.get(("cpu", cpu.id))) is None
+            or offer.price <= budget
+        ]
+        filtered_gpus = [
+            gpu for gpu in gpus
+            if (offer := resolved_offers.get(("gpu", gpu.id))) is None
+            or offer.price <= budget
+        ]
+        return filtered_cpus, filtered_gpus
 
     @classmethod
     def _normalize_use_case(cls, value: str) -> str:
@@ -345,21 +427,21 @@ class MatchService:
         efficiencies: dict[str, float] = {}
 
         for candidate in candidates:
-            offer = resolved_offers.get((entity_type, candidate.sku))
+            offer = resolved_offers.get((entity_type, candidate.id))
             ranking_percentile = float(candidate.ranking_percentile or 0.0)
             if offer is None or offer.price <= 0:
-                efficiencies[candidate.sku] = 0.0
+                efficiencies[candidate.id] = 0.0
                 continue
 
-            efficiencies[candidate.sku] = ranking_percentile / offer.price
+            efficiencies[candidate.id] = ranking_percentile / offer.price
 
         best_efficiency = max(efficiencies.values(), default=0.0)
         if best_efficiency <= 0:
-            return {candidate.sku: 50.0 for candidate in candidates}
+            return {candidate.id: 50.0 for candidate in candidates}
 
         return {
-            sku: round(max(35.0, (efficiency / best_efficiency) * 100), 2)
-            for sku, efficiency in efficiencies.items()
+            entity_id: round(max(35.0, (efficiency / best_efficiency) * 100), 2)
+            for entity_id, efficiency in efficiencies.items()
         }
 
     @classmethod
@@ -386,14 +468,14 @@ class MatchService:
         cpu_value_index: dict[str, float],
         gpu_value_index: dict[str, float],
     ) -> float:
-        if query.owned_cpu_sku is not None and query.owned_gpu_sku is not None:
+        if query.owned_cpu_id is not None and query.owned_gpu_id is not None:
             return 50.0
-        if query.owned_cpu_sku is not None:
-            return gpu_value_index.get(gpu.sku, 50.0)
-        if query.owned_gpu_sku is not None:
-            return cpu_value_index.get(cpu.sku, 50.0)
+        if query.owned_cpu_id is not None:
+            return gpu_value_index.get(gpu.id, 50.0)
+        if query.owned_gpu_id is not None:
+            return cpu_value_index.get(cpu.id, 50.0)
 
-        return round((cpu_value_index.get(cpu.sku, 50.0) + gpu_value_index.get(gpu.sku, 50.0)) / 2, 2)
+        return round((cpu_value_index.get(cpu.id, 50.0) + gpu_value_index.get(gpu.id, 50.0)) / 2, 2)
 
     @classmethod
     def _resolution_fit_score(cls, *, cpu_score: float, gpu_score: float, use_case: str, resolution: str) -> float:
@@ -432,10 +514,11 @@ class MatchService:
     ) -> float:
         scores: list[float] = []
 
-        if query.owned_gpu_sku is None:
+        if query.owned_gpu_id is None:
             scores.append(MatchService._market_score_for_offer(cpu_offer))
-        if query.owned_cpu_sku is None:
+        if query.owned_cpu_id is None:
             scores.append(MatchService._market_score_for_offer(gpu_offer))
+
 
         if not scores:
             return 50.0
@@ -495,18 +578,20 @@ class MatchService:
         *,
         cpu_offer: _ResolvedOffer | None,
         gpu_offer: _ResolvedOffer | None,
-        owned_cpu_sku: str | None,
-        owned_gpu_sku: str | None,
+        owned_cpu_id: str | None,
+        owned_gpu_id: str | None,
     ) -> float | None:
+
         cpu_price = cpu_offer.price if cpu_offer is not None else None
         gpu_price = gpu_offer.price if gpu_offer is not None else None
 
-        if owned_cpu_sku is not None and owned_gpu_sku is not None:
+        if owned_cpu_id is not None and owned_gpu_id is not None:
             return 0.0
-        if owned_cpu_sku is not None:
+        if owned_cpu_id is not None:
             return gpu_price
-        if owned_gpu_sku is not None:
+        if owned_gpu_id is not None:
             return cpu_price
+
 
         return MatchService._sum_prices(cpu_price, gpu_price)
 
@@ -564,8 +649,9 @@ class MatchService:
         elif vram_score < 60:
             reasons.append(f"vram curta para {resolution}")
 
-        if query.owned_cpu_sku is not None or query.owned_gpu_sku is not None:
+        if query.owned_cpu_id is not None or query.owned_gpu_id is not None:
             reasons.append("considera reaproveitamento da sua peca atual")
+
 
         if not reasons:
             reasons.append("combo dentro de um equilibrio pratico")

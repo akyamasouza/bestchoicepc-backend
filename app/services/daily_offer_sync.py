@@ -89,7 +89,11 @@ class DailyOfferSyncService:
                 result.errors.append(f"{entity_sku}: {exc}")
                 continue
 
-            mismatch_reason = self.entity_matcher.mismatch_reason(entity_name=entity_name, raw_text=offer.raw_text)
+            mismatch_reason = self.entity_matcher.mismatch_reason(
+                entity_name=entity_name,
+                entity_sku=entity_sku,
+                raw_text=offer.raw_text,
+            )
             if mismatch_reason is not None:
                 result.skipped += 1
                 result.errors.append(f"{entity_sku}: {mismatch_reason}")

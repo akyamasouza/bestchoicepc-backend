@@ -117,10 +117,11 @@ class GpuRepository:
     ) -> GpuListResponse:
         return GpuListResponse(items=items, page=page, limit=limit, total=total)
 
-    def list_match_candidates(self, *, sku: str | None = None) -> list[GpuListItem]:
+    def list_match_candidates(self, *, id: str | None = None, sku: str | None = None) -> list[GpuListItem]:
         return execute_candidate_query(
             self.collection,
             self.match_candidate_strategy,
+            id=id,
             sku=sku,
         )
 
