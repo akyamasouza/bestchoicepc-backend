@@ -47,13 +47,18 @@ class DailyOfferSyncService:
         self.offer_parser = offer_parser
         self.entity_matcher = entity_matcher or EntityMatcher()
 
-    async def sync(self, *, channel: str | None = None, limit: int = 1) -> DailyOfferSyncResult:
+    async def sync(self, *, channel: str | None = None, limit: int = 1, object_id: str | None = None) -> DailyOfferSyncResult:
         result = DailyOfferSyncResult()
         self.daily_offer_repository.ensure_indexes()
 
         entity_label = self.entity_type.upper()
 
-        for item in self.catalog_collection.find({}, {"sku": 1, "name": 1}).sort("name", 1):
+        query = {}
+        if object_id is not None:
+            from bson.objectid import ObjectId
+            query["_id"] = ObjectId(object_id)
+
+        for item in self.catalog_collection.find(query, {"sku": 1, "name": 1}).sort("name", 1):
             result.processed += 1
 
             entity_sku = str(item.get("sku") or "").strip()

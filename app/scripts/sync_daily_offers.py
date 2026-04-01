@@ -3,7 +3,16 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from app.core.database import close_mongo_client, get_cpu_collection, get_daily_offer_collection, get_gpu_collection
+from app.core.database import (
+    close_mongo_client,
+    get_cpu_collection,
+    get_daily_offer_collection,
+    get_gpu_collection,
+    get_motherboard_collection,
+    get_psu_collection,
+    get_ram_collection,
+    get_ssd_collection,
+)
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.services.daily_offer_sync import DailyOfferSyncService
 from app.services.telegram_offer_parser import TelegramOfferParser
@@ -11,15 +20,22 @@ from app.services.telegram_search import TelegramChannelSearchService
 
 
 def get_catalog_collection(entity_type: str):
-    if entity_type == "cpu":
-        return get_cpu_collection()
-    if entity_type == "gpu":
-        return get_gpu_collection()
+    collections = {
+        "cpu": get_cpu_collection,
+        "gpu": get_gpu_collection,
+        "ssd": get_ssd_collection,
+        "ram": get_ram_collection,
+        "psu": get_psu_collection,
+        "motherboard": get_motherboard_collection,
+    }
+
+    if entity_type in collections:
+        return collections[entity_type]()
 
     raise RuntimeError(f"Tipo de entidade nao suportado: {entity_type}")
 
 
-async def run(entity_type: str = "cpu", channel: str | None = None, limit: int = 1) -> int:
+async def run(entity_type: str = "cpu", channel: str | None = None, limit: int = 1, object_id: str | None = None) -> int:
     telegram_search_service = TelegramChannelSearchService()
     daily_offer_repository = DailyOfferRepository(get_daily_offer_collection())
     sync_service = DailyOfferSyncService(
@@ -31,7 +47,7 @@ async def run(entity_type: str = "cpu", channel: str | None = None, limit: int =
     )
 
     try:
-        result = await sync_service.sync(channel=channel, limit=limit)
+        result = await sync_service.sync(channel=channel, limit=limit, object_id=object_id)
     finally:
         await telegram_search_service.close()
 
@@ -54,7 +70,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Sincroniza ofertas diarias por tipo de entidade a partir do Telegram.")
     parser.add_argument(
         "--entity-type",
-        choices=["cpu", "gpu"],
+        choices=["cpu", "gpu", "ssd", "ram", "psu", "motherboard"],
         default="cpu",
         help="Tipo de entidade a sincronizar. O padrao e cpu.",
     )
@@ -65,6 +81,10 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="Quantidade maxima de mensagens por consulta. O padrao e 1.",
     )
+    parser.add_argument(
+        "--id",
+        help="ObjectId exato do produto no MongoDB para sincronizar isoladamente.",
+    )
     return parser.parse_args()
 
 
@@ -72,7 +92,12 @@ def main() -> None:
     args = parse_args()
 
     try:
-        raise SystemExit(asyncio.run(run(entity_type=args.entity_type, channel=args.channel, limit=args.limit)))
+        raise SystemExit(asyncio.run(run(
+            entity_type=args.entity_type, 
+            channel=args.channel, 
+            limit=args.limit, 
+            object_id=args.id
+        )))
     finally:
         close_mongo_client()
 
