@@ -1,20 +1,20 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
-from pymongo.collection import Collection
 
-from app.core.database import get_cpu_collection
+from app.core.database import coerce_document_id, get_cpu_collection
 from app.repositories.cpu_repository import CpuRepository
-from app.schemas.cpu import CpuListItem, CpuListResponse, CpuRankingListResponse
+from app.repositories.protocols import CollectionProtocol
+from app.schemas.cpu import CpuListResponse, CpuRankingListResponse
 
 
 router = APIRouter(prefix="/cpus", tags=["cpus"])
 
 
 def get_cpu_repository(
-    collection: Collection = Depends(get_cpu_collection),
+    collection: CollectionProtocol = Depends(get_cpu_collection),
 ) -> CpuRepository:
-    return CpuRepository(collection)
+    return CpuRepository(collection, document_id_coercer=coerce_document_id)
 
 
 @router.get("", response_model=CpuListResponse)

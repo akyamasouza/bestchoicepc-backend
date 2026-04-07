@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Generic, TypeVar
 
-from pymongo import ASCENDING, DESCENDING
-from pymongo.collection import Collection
+from app.repositories.protocols import ASCENDING, DESCENDING, CollectionProtocol
 
 
 ItemT = TypeVar("ItemT")
@@ -40,7 +39,7 @@ class RankingQueryStrategy(Generic[ItemT, ResponseT]):
 
 
 def execute_ranking_query(
-    collection: Collection,
+    collection: CollectionProtocol,
     strategy: RankingQueryStrategy[ItemT, ResponseT],
     *,
     filters: dict[str, Any],

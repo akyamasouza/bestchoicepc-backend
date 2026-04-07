@@ -4,6 +4,7 @@ import argparse
 import asyncio
 
 from app.core.database import (
+    coerce_document_id,
     close_mongo_client,
     get_cpu_collection,
     get_daily_offer_collection,
@@ -44,6 +45,7 @@ async def run(entity_type: str = "cpu", channel: str | None = None, limit: int =
         daily_offer_repository=daily_offer_repository,
         telegram_search_service=telegram_search_service,
         offer_parser=TelegramOfferParser(),
+        document_id_coercer=coerce_document_id,
     )
 
     try:

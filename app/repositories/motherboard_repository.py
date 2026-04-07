@@ -1,10 +1,8 @@
 import re
 from typing import Any
 
-from pymongo import ASCENDING
-from pymongo.collection import Collection
-
 from app.repositories.paged_query import PagedQueryStrategy, execute_paged_query
+from app.repositories.protocols import ASCENDING, CollectionProtocol
 from app.schemas.motherboard import (
     MotherboardCompatibility,
     MotherboardListItem,
@@ -13,7 +11,7 @@ from app.schemas.motherboard import (
 
 
 class MotherboardRepository:
-    def __init__(self, collection: Collection):
+    def __init__(self, collection: CollectionProtocol) -> None:
         self.collection = collection
         self.list_strategy = PagedQueryStrategy[MotherboardListItem, MotherboardListResponse](
             projection={

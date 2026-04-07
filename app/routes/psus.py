@@ -1,10 +1,10 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
-from pymongo.collection import Collection
 
 from app.core.database import get_psu_collection
 from app.repositories.psu_repository import PsuRepository
+from app.repositories.protocols import CollectionProtocol
 from app.schemas.psu import PsuListResponse, PsuRankingListResponse
 
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/psus", tags=["psus"])
 
 
 def get_psu_repository(
-    collection: Collection = Depends(get_psu_collection),
+    collection: CollectionProtocol = Depends(get_psu_collection),
 ) -> PsuRepository:
     return PsuRepository(collection)
 

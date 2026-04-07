@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Generic, TypeVar
 
-from pymongo.collection import Collection
+from app.repositories.protocols import CollectionProtocol
 
 
 ItemT = TypeVar("ItemT")
@@ -30,7 +30,7 @@ class PagedQueryStrategy(Generic[ItemT, ResponseT]):
 
 
 def execute_paged_query(
-    collection: Collection,
+    collection: CollectionProtocol,
     strategy: PagedQueryStrategy[ItemT, ResponseT],
     *,
     filters: dict[str, Any],

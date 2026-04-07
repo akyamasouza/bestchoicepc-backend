@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Query
-from pymongo.collection import Collection
 
 from app.core.database import get_ram_collection
 from app.repositories.ram_repository import RamRepository
+from app.repositories.protocols import CollectionProtocol
 from app.schemas.ram import RamListResponse
 
 
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/rams", tags=["rams"])
 
 
 def get_ram_repository(
-    collection: Collection = Depends(get_ram_collection),
+    collection: CollectionProtocol = Depends(get_ram_collection),
 ) -> RamRepository:
     return RamRepository(collection)
 

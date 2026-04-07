@@ -1,9 +1,9 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
-from pymongo.collection import Collection
 
 from app.core.database import get_ssd_collection
+from app.repositories.protocols import CollectionProtocol
 from app.repositories.ssd_repository import SsdRepository
 from app.schemas.ssd import SsdListResponse, SsdRankingListResponse
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/ssds", tags=["ssds"])
 
 
 def get_ssd_repository(
-    collection: Collection = Depends(get_ssd_collection),
+    collection: CollectionProtocol = Depends(get_ssd_collection),
 ) -> SsdRepository:
     return SsdRepository(collection)
 

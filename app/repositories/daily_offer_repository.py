@@ -1,16 +1,14 @@
 from datetime import datetime
+from typing import Any
 from zoneinfo import ZoneInfo
 
-from pymongo import ASCENDING, DESCENDING
-from pymongo.collection import Collection
-from pymongo.results import UpdateResult
-
 from app.core.config import settings
+from app.repositories.protocols import ASCENDING, DESCENDING, CollectionProtocol
 from app.schemas.daily_offer import DailyOffer
 
 
 class DailyOfferRepository:
-    def __init__(self, collection: Collection):
+    def __init__(self, collection: CollectionProtocol) -> None:
         self.collection = collection
 
     def ensure_indexes(self) -> None:
@@ -31,7 +29,7 @@ class DailyOfferRepository:
             ]
         )
 
-    def upsert(self, offer: DailyOffer) -> UpdateResult:
+    def upsert(self, offer: DailyOffer) -> Any:
         return self.collection.update_one(
             {
                 "business_date": offer.business_date,

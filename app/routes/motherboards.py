@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Query
-from pymongo.collection import Collection
 
 from app.core.database import get_motherboard_collection
 from app.repositories.motherboard_repository import MotherboardRepository
+from app.repositories.protocols import CollectionProtocol
 from app.schemas.motherboard import MotherboardListResponse
 
 
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/motherboards", tags=["motherboards"])
 
 
 def get_motherboard_repository(
-    collection: Collection = Depends(get_motherboard_collection),
+    collection: CollectionProtocol = Depends(get_motherboard_collection),
 ) -> MotherboardRepository:
     return MotherboardRepository(collection)
 

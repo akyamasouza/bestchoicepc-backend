@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pymongo.collection import Collection
 
 from app.core.database import (
+    coerce_document_id,
     get_cpu_collection,
     get_daily_offer_collection,
     get_gpu_collection,
@@ -9,6 +9,7 @@ from app.core.database import (
 from app.repositories.cpu_repository import CpuRepository
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.repositories.gpu_repository import GpuRepository
+from app.repositories.protocols import CollectionProtocol
 from app.schemas.cpu import CpuListItem
 from app.schemas.daily_offer import DailyOffer
 from app.schemas.gpu import GpuListItem
@@ -36,19 +37,19 @@ def get_match_service() -> MatchService:
 
 
 def get_cpu_repository(
-    collection: Collection = Depends(get_cpu_collection),
+    collection: CollectionProtocol = Depends(get_cpu_collection),
 ) -> CpuRepository:
-    return CpuRepository(collection)
+    return CpuRepository(collection, document_id_coercer=coerce_document_id)
 
 
 def get_gpu_repository(
-    collection: Collection = Depends(get_gpu_collection),
+    collection: CollectionProtocol = Depends(get_gpu_collection),
 ) -> GpuRepository:
-    return GpuRepository(collection)
+    return GpuRepository(collection, document_id_coercer=coerce_document_id)
 
 
 def get_daily_offer_repository(
-    collection: Collection = Depends(get_daily_offer_collection),
+    collection: CollectionProtocol = Depends(get_daily_offer_collection),
 ) -> DailyOfferRepository:
     return DailyOfferRepository(collection)
 

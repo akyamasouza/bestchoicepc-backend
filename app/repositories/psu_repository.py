@@ -1,9 +1,7 @@
 import re
 from typing import Any, Literal
 
-from pymongo import ASCENDING
-from pymongo.collection import Collection
-
+from app.repositories.protocols import ASCENDING, CollectionProtocol
 from app.repositories.ranking_query import RankingQueryStrategy, execute_ranking_query
 from app.schemas.psu import (
     PsuBenchmark,
@@ -16,7 +14,7 @@ from app.schemas.psu import (
 
 
 class PsuRepository:
-    def __init__(self, collection: Collection):
+    def __init__(self, collection: CollectionProtocol) -> None:
         self.collection = collection
         self.ranking_strategy = RankingQueryStrategy[
             PsuRankingListItem,

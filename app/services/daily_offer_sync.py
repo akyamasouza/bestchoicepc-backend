@@ -4,9 +4,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol
 
-from pymongo.collection import Collection
-
 from app.repositories.daily_offer_repository import DailyOfferRepository
+from app.repositories.protocols import (
+    CollectionProtocol,
+    DocumentIdCoercer,
+    identity_document_id,
+)
 from app.services.entity_matcher import EntityMatcher
 from app.services.telegram_offer_parser import TelegramOfferParser
 
@@ -33,12 +36,13 @@ class DailyOfferSyncService:
     def __init__(
         self,
         *,
-        catalog_collection: Collection,
+        catalog_collection: CollectionProtocol,
         entity_type: str,
         daily_offer_repository: DailyOfferRepository,
         telegram_search_service: TelegramSearchServiceProtocol,
         offer_parser: TelegramOfferParser,
         entity_matcher: EntityMatcher | None = None,
+        document_id_coercer: DocumentIdCoercer = identity_document_id,
     ) -> None:
         self.catalog_collection = catalog_collection
         self.entity_type = entity_type
@@ -46,6 +50,7 @@ class DailyOfferSyncService:
         self.telegram_search_service = telegram_search_service
         self.offer_parser = offer_parser
         self.entity_matcher = entity_matcher or EntityMatcher()
+        self.document_id_coercer = document_id_coercer
 
     async def sync(self, *, channel: str | None = None, limit: int = 1, object_id: str | None = None) -> DailyOfferSyncResult:
         result = DailyOfferSyncResult()
@@ -55,8 +60,7 @@ class DailyOfferSyncService:
 
         query = {}
         if object_id is not None:
-            from bson.objectid import ObjectId
-            query["_id"] = ObjectId(object_id)
+            query["_id"] = self.document_id_coercer(object_id)
 
         for item in self.catalog_collection.find(query, {"sku": 1, "name": 1}).sort("name", 1):
             result.processed += 1

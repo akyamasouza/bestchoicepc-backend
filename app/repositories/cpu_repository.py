@@ -1,11 +1,14 @@
 import re
 from typing import Any, Literal
 
-from pymongo import ASCENDING
-from pymongo.collection import Collection
-
 from app.repositories.candidate_query import CandidateQueryStrategy, execute_candidate_query
 from app.repositories.paged_query import PagedQueryStrategy, execute_paged_query
+from app.repositories.protocols import (
+    ASCENDING,
+    CollectionProtocol,
+    DocumentIdCoercer,
+    identity_document_id,
+)
 from app.repositories.ranking_query import RankingQueryStrategy, execute_ranking_query
 from app.schemas.cpu import (
     CpuBenchmark,
@@ -18,7 +21,11 @@ from app.schemas.cpu import (
 
 
 class CpuRepository:
-    def __init__(self, collection: Collection):
+    def __init__(
+        self,
+        collection: CollectionProtocol,
+        document_id_coercer: DocumentIdCoercer = identity_document_id,
+    ) -> None:
         self.collection = collection
         self.list_strategy = PagedQueryStrategy[CpuListItem, CpuListResponse](
             projection={
@@ -45,6 +52,7 @@ class CpuRepository:
                 "ranking": 1,
             },
             map_item_fn=self._to_list_item,
+            coerce_id_fn=document_id_coercer,
         )
         self.ranking_strategy = RankingQueryStrategy[
             CpuRankingListItem,

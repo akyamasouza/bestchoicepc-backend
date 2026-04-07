@@ -1,20 +1,20 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
-from pymongo.collection import Collection
 
-from app.core.database import get_gpu_collection
+from app.core.database import coerce_document_id, get_gpu_collection
 from app.repositories.gpu_repository import GpuRepository
-from app.schemas.gpu import GpuListItem, GpuListResponse, GpuRankingListResponse
+from app.repositories.protocols import CollectionProtocol
+from app.schemas.gpu import GpuListResponse, GpuRankingListResponse
 
 
 router = APIRouter(prefix="/gpus", tags=["gpus"])
 
 
 def get_gpu_repository(
-    collection: Collection = Depends(get_gpu_collection),
+    collection: CollectionProtocol = Depends(get_gpu_collection),
 ) -> GpuRepository:
-    return GpuRepository(collection)
+    return GpuRepository(collection, document_id_coercer=coerce_document_id)
 
 
 @router.get("", response_model=GpuListResponse)
