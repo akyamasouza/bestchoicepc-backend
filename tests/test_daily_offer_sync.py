@@ -54,8 +54,8 @@ class FakeTelegramSearchService:
 def test_sync_persists_one_daily_offer_per_cpu_query() -> None:
     catalog_collection = FakeCatalogCollection(
         [
-            {"sku": "100-100001084WOF", "name": "AMD Ryzen 7 9800X3D"},
-            {"sku": "100-100001404WOF", "name": "AMD Ryzen 7 9700X"},
+            {"_id": "id-1", "sku": "ryzen-7-9800x3d", "name": "AMD Ryzen 7 9800X3D"},
+            {"_id": "id-2", "sku": "ryzen-7-9700x", "name": "AMD Ryzen 7 9700X"},
         ]
     )
     offer_collection = FakeOfferCollection()
@@ -98,19 +98,19 @@ def test_sync_persists_one_daily_offer_per_cpu_query() -> None:
         ("AMD Ryzen 7 9800X3D", None, 1),
     ]
     assert offer_collection.indexes == [
-        ([("business_date", 1), ("entity_type", 1), ("entity_sku", 1), ("store", 1)], True),
-        ([("entity_type", 1), ("entity_sku", 1), ("business_date", -1)], False),
+        ([("business_date", 1), ("entity_type", 1), ("entity_id", 1), ("store", 1)], True),
+        ([("entity_type", 1), ("entity_id", 1), ("business_date", -1)], False),
     ]
     assert offer_collection.operations[0][0] == {
         "business_date": "2026-03-25",
         "entity_type": "cpu",
-        "entity_sku": "100-100001084WOF",
+        "entity_id": "id-1",
         "store": "amazon",
     }
 
 
 def test_sync_collects_parser_errors_and_continues() -> None:
-    catalog_collection = FakeCatalogCollection([{"sku": "sku-1", "name": "AMD Ryzen 7 9800X3D"}])
+    catalog_collection = FakeCatalogCollection([{"_id": "id-1", "sku": "ryzen-7-9800x3d", "name": "AMD Ryzen 7 9800X3D"}])
     offer_collection = FakeOfferCollection()
     repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
@@ -139,12 +139,12 @@ def test_sync_collects_parser_errors_and_continues() -> None:
     assert result.matched == 1
     assert result.persisted == 0
     assert result.skipped == 1
-    assert result.errors == ["sku-1: Could not extract store from Telegram message."]
+    assert result.errors == ["ryzen-7-9800x3d: Could not extract store from Telegram message."]
     assert offer_collection.operations == []
 
 
 def test_sync_persists_old_offers_when_found() -> None:
-    catalog_collection = FakeCatalogCollection([{"sku": "sku-1", "name": "AMD Ryzen 7 9800X3D"}])
+    catalog_collection = FakeCatalogCollection([{"_id": "id-1", "sku": "ryzen-7-9800x3d", "name": "AMD Ryzen 7 9800X3D"}])
     offer_collection = FakeOfferCollection()
     repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
@@ -183,8 +183,8 @@ def test_sync_persists_old_offers_when_found() -> None:
 def test_sync_collects_search_errors_and_continues() -> None:
     catalog_collection = FakeCatalogCollection(
         [
-            {"sku": "sku-1", "name": "AMD Ryzen 7 9800X3D"},
-            {"sku": "sku-2", "name": "AMD Ryzen 7 9700X"},
+            {"_id": "id-1", "sku": "ryzen-7-9800x3d", "name": "AMD Ryzen 7 9800X3D"},
+            {"_id": "id-2", "sku": "ryzen-7-9700x", "name": "AMD Ryzen 7 9700X"},
         ]
     )
     offer_collection = FakeOfferCollection()
@@ -219,12 +219,12 @@ def test_sync_collects_search_errors_and_continues() -> None:
     assert result.matched == 1
     assert result.persisted == 1
     assert result.skipped == 1
-    assert result.errors == ["sku-1: falha ao buscar no Telegram (429)"]
+    assert result.errors == ["ryzen-7-9800x3d: falha ao buscar no Telegram (429)"]
     assert len(offer_collection.operations) == 1
 
 
 def test_sync_persists_gpu_offers_with_gpu_entity_type() -> None:
-    catalog_collection = FakeCatalogCollection([{"sku": "geforce-rtx-5090", "name": "GeForce RTX 5090"}])
+    catalog_collection = FakeCatalogCollection([{"_id": "id-3", "sku": "geforce-rtx-5090", "name": "GeForce RTX 5090"}])
     offer_collection = FakeOfferCollection()
     repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
@@ -257,13 +257,13 @@ def test_sync_persists_gpu_offers_with_gpu_entity_type() -> None:
     assert offer_collection.operations[0][0] == {
         "business_date": "2026-03-25",
         "entity_type": "gpu",
-        "entity_sku": "geforce-rtx-5090",
+        "entity_id": "id-3",
         "store": "kabum",
     }
 
 
 def test_sync_rejects_gpu_variant_mismatch_before_persisting() -> None:
-    catalog_collection = FakeCatalogCollection([{"sku": "geforce-rtx-5070", "name": "GeForce RTX 5070"}])
+    catalog_collection = FakeCatalogCollection([{"_id": "id-4", "sku": "geforce-rtx-5070", "name": "GeForce RTX 5070"}])
     offer_collection = FakeOfferCollection()
     repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(

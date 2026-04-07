@@ -43,6 +43,7 @@ class ReverseMatcher:
                 if "sku" in item and "name" in item:
                     catalog.append({
                         "entity_type": entity_type,
+                        "entity_id": str(item["_id"]),
                         "sku": str(item["sku"]),
                         "name": str(item["name"]),
                     })
@@ -56,7 +57,7 @@ class ReverseMatcher:
         for item in self.catalog:
             reason = self.matcher.mismatch_reason(
                 entity_name=item["name"],
-                entity_sku=item["sku"],
+                entity_id=item["sku"],
                 raw_text=raw_text,
             )
             # Se a reason for None, significa match perfeitamente aceitavel
@@ -119,7 +120,7 @@ async def main():
             offer = offer_parser.parse(
                 message_data,
                 entity_type=match["entity_type"],
-                entity_sku=match["sku"],
+                entity_id=match["entity_id"],
                 entity_name=match["name"],
             )
 

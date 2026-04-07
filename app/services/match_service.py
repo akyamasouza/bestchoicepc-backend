@@ -24,7 +24,7 @@ class GpuMatchCandidate:
 @dataclass(frozen=True, slots=True)
 class OfferSnapshot:
     entity_type: str
-    entity_sku: str
+    entity_id: str
     business_date: str
     price_card: float
     lowest_price_90d: float | None = None
@@ -45,7 +45,6 @@ class MatchQuery:
 @dataclass(frozen=True, slots=True)
 class MatchComponent:
     id: str
-    sku: str
     name: str
     ranking_percentile: float
     price: float | None
@@ -395,7 +394,7 @@ class MatchService:
         resolved: dict[tuple[str, str], OfferSnapshot] = {}
 
         for offer in offers:
-            key = (offer.entity_type.lower(), offer.entity_sku)
+            key = (offer.entity_type.lower(), offer.entity_id)
             current = resolved.get(key)
             if current is None:
                 resolved[key] = offer

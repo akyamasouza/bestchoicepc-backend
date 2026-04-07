@@ -89,8 +89,8 @@ def list_matches(
                 use_case=request.use_case,
                 resolution=request.resolution,
                 budget=request.budget,
-                owned_cpu_sku=request.owned_cpu_sku,
-                owned_gpu_sku=request.owned_gpu_sku,
+                owned_cpu_id=request.owned_cpu_id,
+                owned_gpu_id=request.owned_gpu_id,
                 limit=request.limit,
             ),
         )
@@ -108,7 +108,7 @@ def list_matches(
 
 def _to_cpu_match_candidate(item: CpuListItem) -> CpuMatchCandidate:
     return CpuMatchCandidate(
-        sku=item.sku,
+        id=str(item.id),
         name=item.name,
         ranking_percentile=item.ranking.game_percentile if item.ranking is not None else None,
     )
@@ -116,7 +116,7 @@ def _to_cpu_match_candidate(item: CpuListItem) -> CpuMatchCandidate:
 
 def _to_gpu_match_candidate(item: GpuListItem) -> GpuMatchCandidate:
     return GpuMatchCandidate(
-        sku=item.sku,
+        id=str(item.id),
         name=item.name,
         ranking_percentile=item.ranking.game_percentile if item.ranking is not None else None,
         memory_size_mb=item.memory_size_mb,
@@ -126,7 +126,7 @@ def _to_gpu_match_candidate(item: GpuListItem) -> GpuMatchCandidate:
 def _to_offer_snapshot(item: DailyOffer) -> OfferSnapshot:
     return OfferSnapshot(
         entity_type=item.entity_type,
-        entity_sku=item.entity_sku,
+        entity_id=item.entity_id,
         business_date=item.business_date,
         price_card=item.price_card,
         lowest_price_90d=item.lowest_price_90d,
@@ -137,13 +137,13 @@ def _to_offer_snapshot(item: DailyOffer) -> OfferSnapshot:
 def _to_match_item_response(item: MatchResult) -> MatchItemResponse:
     return MatchItemResponse(
         cpu=MatchComponentResponse(
-            sku=item.cpu.sku,
+            id=item.cpu.id,
             name=item.cpu.name,
             ranking_percentile=item.cpu.ranking_percentile,
             price=item.cpu.price,
         ),
         gpu=MatchComponentResponse(
-            sku=item.gpu.sku,
+            id=item.gpu.id,
             name=item.gpu.name,
             ranking_percentile=item.gpu.ranking_percentile,
             price=item.gpu.price,

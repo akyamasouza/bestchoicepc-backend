@@ -15,7 +15,7 @@ class FakeDailyOfferRepository:
             DailyOffer(
                 business_date="2026-03-25",
                 entity_type="cpu",
-                entity_sku="100-100001084WOF",
+                entity_id="100-100001084WOF",
                 entity_name="AMD Ryzen 7 9800X3D",
                 store="amazon",
                 store_display_name="Amazon",
@@ -75,7 +75,7 @@ def test_list_today_daily_cpu_offers() -> None:
         {
             "business_date": "2026-03-25",
             "entity_type": "cpu",
-            "entity_sku": "100-100001084WOF",
+            "entity_id": "100-100001084WOF",
             "entity_name": "AMD Ryzen 7 9800X3D",
             "store": "amazon",
             "store_display_name": "Amazon",
@@ -100,7 +100,7 @@ def test_daily_cpu_offer_repository_lists_only_today(monkeypatch) -> None:
             {
                 "business_date": "2026-03-25",
                 "entity_type": "cpu",
-                "entity_sku": "100-100001084WOF",
+                "entity_id": "100-100001084WOF",
                 "entity_name": "AMD Ryzen 7 9800X3D",
                 "store": "amazon",
                 "store_display_name": "Amazon",
@@ -117,7 +117,7 @@ def test_daily_cpu_offer_repository_lists_only_today(monkeypatch) -> None:
             {
                 "business_date": "2026-03-24",
                 "entity_type": "cpu",
-                "entity_sku": "100-100001404WOF",
+                "entity_id": "100-100001404WOF",
                 "entity_name": "AMD Ryzen 7 9700X",
                 "store": "kabum",
                 "store_display_name": "KaBuM!",

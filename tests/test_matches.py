@@ -5,25 +5,18 @@ from app.routes.matches import (
     get_cpu_repository,
     get_daily_offer_repository,
     get_gpu_repository,
-    get_review_consensus_lookup_service,
 )
 from app.schemas.cpu import CpuListItem, CpuRanking
 from app.schemas.daily_offer import DailyOffer
 from app.schemas.gpu import GpuListItem, GpuRanking
-from app.services.review_consensus_lookup import ReviewConsensusLookup
-from app.services.youtube_review_consensus import (
-    MatchReviewedGame,
-    MatchReviewConsensus,
-    YoutubeVideoReference,
-)
 
 
 class FakeCpuRepository:
     def __init__(self) -> None:
-        self.last_requested_sku: str | None = None
+        self.last_requested_id: str | None = None
 
-    def list_match_candidates(self, *, sku: str | None = None) -> list[CpuListItem]:
-        self.last_requested_sku = sku
+    def list_match_candidates(self, *, id: str | None = None, sku: str | None = None) -> list[CpuListItem]:
+        self.last_requested_id = id
         items = [
             CpuListItem(
                 id="cpu-1",
@@ -54,17 +47,17 @@ class FakeCpuRepository:
                 ),
             ),
         ]
-        if sku is None:
+        if id is None:
             return items
-        return [item for item in items if item.sku == sku]
+        return [item for item in items if item.id == id]
 
 
 class FakeGpuRepository:
     def __init__(self) -> None:
-        self.last_requested_sku: str | None = None
+        self.last_requested_id: str | None = None
 
-    def list_match_candidates(self, *, sku: str | None = None) -> list[GpuListItem]:
-        self.last_requested_sku = sku
+    def list_match_candidates(self, *, id: str | None = None, sku: str | None = None) -> list[GpuListItem]:
+        self.last_requested_id = id
         items = [
             GpuListItem(
                 id="gpu-1",
@@ -101,9 +94,9 @@ class FakeGpuRepository:
                 ),
             ),
         ]
-        if sku is None:
+        if id is None:
             return items
-        return [item for item in items if item.sku == sku]
+        return [item for item in items if item.id == id]
 
 
 class FakeDailyOfferRepository:
@@ -113,7 +106,7 @@ class FakeDailyOfferRepository:
                 DailyOffer(
                     business_date="2026-03-30",
                     entity_type="cpu",
-                    entity_sku="ryzen-5-7600",
+                    entity_id="cpu-1",
                     entity_name="AMD Ryzen 5 7600",
                     store="kabum",
                     store_display_name="KaBuM!",
@@ -130,7 +123,7 @@ class FakeDailyOfferRepository:
                 DailyOffer(
                     business_date="2026-03-30",
                     entity_type="cpu",
-                    entity_sku="ryzen-7-7800x3d",
+                    entity_id="cpu-2",
                     entity_name="AMD Ryzen 7 7800X3D",
                     store="kabum",
                     store_display_name="KaBuM!",
@@ -151,7 +144,7 @@ class FakeDailyOfferRepository:
                 DailyOffer(
                     business_date="2026-03-30",
                     entity_type="gpu",
-                    entity_sku="rtx-4060",
+                    entity_id="gpu-1",
                     entity_name="GeForce RTX 4060",
                     store="kabum",
                     store_display_name="KaBuM!",
@@ -168,7 +161,7 @@ class FakeDailyOfferRepository:
                 DailyOffer(
                     business_date="2026-03-30",
                     entity_type="gpu",
-                    entity_sku="rtx-4070-super",
+                    entity_id="gpu-2",
                     entity_name="GeForce RTX 4070 Super",
                     store="kabum",
                     store_display_name="KaBuM!",
@@ -185,61 +178,6 @@ class FakeDailyOfferRepository:
             ]
 
         return []
-
-
-class FakeReviewConsensusLookupService:
-    def get_or_start_lookup(
-        self,
-        *,
-        cpu_sku: str,
-        cpu_name: str,
-        gpu_sku: str,
-        gpu_name: str,
-        background_tasks,
-        force_refresh: bool = False,
-    ) -> ReviewConsensusLookup:
-        if "Ryzen 5 7600" not in cpu_name or "RTX 4070 Super" not in gpu_name:
-            return ReviewConsensusLookup(
-                status="no_consensus",
-                reason="insufficient_evidence",
-                review_consensus=None,
-            )
-
-        return ReviewConsensusLookup(
-            status="ready",
-            reason=None,
-            review_consensus=MatchReviewConsensus(
-                insight="Consenso dos reviews sugere que o par aparece como bem equilibrado. Nos trechos com FPS explicito, a media observada ficou em torno de 91.5 FPS.",
-                warnings=("Os reviews destacam cenarios com DLSS.",),
-                confidence="high",
-                references=(
-                    YoutubeVideoReference(
-                        title="RTX 4070 Super + Ryzen 5 7600 benchmark",
-                        url="https://www.youtube.com/watch?v=video-1",
-                        channel="Channel 1",
-                    ),
-                    YoutubeVideoReference(
-                        title="Ryzen 5 7600 with RTX 4070 Super review",
-                        url="https://www.youtube.com/watch?v=video-2",
-                        channel="Channel 2",
-                    ),
-                ),
-                source_count=2,
-                average_explicit_fps=91.5,
-                tested_games=(
-                    MatchReviewedGame(
-                        name="Cyberpunk 2077",
-                        resolution="1440p",
-                        avg_fps=92.0,
-                    ),
-                    MatchReviewedGame(
-                        name="Alan Wake 2",
-                        resolution="1440p",
-                        avg_fps=91.0,
-                    ),
-                ),
-            ),
-        )
 
 
 def test_list_matches_returns_ranked_pairs() -> None:
@@ -265,20 +203,20 @@ def test_list_matches_returns_ranked_pairs() -> None:
     assert response.status_code == 200
     payload = response.json()
 
-    assert cpu_repository.last_requested_sku is None
-    assert gpu_repository.last_requested_sku is None
+    assert cpu_repository.last_requested_id is None
+    assert gpu_repository.last_requested_id is None
     assert payload["total"] == 3
     assert len(payload["items"]) == 3
     top_match = payload["items"][0]
 
     assert top_match["cpu"] == {
-        "sku": "ryzen-5-7600",
+        "id": "cpu-1",
         "name": "AMD Ryzen 5 7600",
         "ranking_percentile": 80.0,
         "price": 1400.0,
     }
     assert top_match["gpu"] == {
-        "sku": "rtx-4070-super",
+        "id": "gpu-2",
         "name": "GeForce RTX 4070 Super",
         "ranking_percentile": 82.0,
         "price": 3800.0,
@@ -291,74 +229,6 @@ def test_list_matches_returns_ranked_pairs() -> None:
     assert "faixa de desempenho adequada para 1440p" in top_match["reasons"]
     assert "preco atual bem posicionado no historico" in top_match["reasons"]
     assert "vram adequada para 1440p" in top_match["reasons"]
-    assert top_match["review_consensus"] is None
-    assert top_match["review_consensus_status"] == "not_requested"
-    assert top_match["review_consensus_reason"] is None
-
-
-def test_list_matches_can_include_review_consensus() -> None:
-    cpu_repository = FakeCpuRepository()
-    gpu_repository = FakeGpuRepository()
-    app.dependency_overrides[get_cpu_repository] = lambda: cpu_repository
-    app.dependency_overrides[get_gpu_repository] = lambda: gpu_repository
-    app.dependency_overrides[get_daily_offer_repository] = FakeDailyOfferRepository
-    app.dependency_overrides[get_review_consensus_lookup_service] = FakeReviewConsensusLookupService
-    client = TestClient(app)
-
-    response = client.post(
-        "/matches",
-        json={
-            "use_case": "aaa",
-            "resolution": "1440p",
-            "budget": 5500,
-            "limit": 2,
-            "include_review_consensus": True,
-            "review_consensus_limit": 1,
-        },
-    )
-
-    app.dependency_overrides.clear()
-
-    assert response.status_code == 200
-    payload = response.json()
-    top_match = payload["items"][0]
-
-    assert top_match["review_consensus"] == {
-        "insight": "Consenso dos reviews sugere que o par aparece como bem equilibrado. Nos trechos com FPS explicito, a media observada ficou em torno de 91.5 FPS.",
-        "warnings": ["Os reviews destacam cenarios com DLSS."],
-        "confidence": "high",
-        "references": [
-            {
-                "title": "RTX 4070 Super + Ryzen 5 7600 benchmark",
-                "url": "https://www.youtube.com/watch?v=video-1",
-                "channel": "Channel 1",
-            },
-            {
-                "title": "Ryzen 5 7600 with RTX 4070 Super review",
-                "url": "https://www.youtube.com/watch?v=video-2",
-                "channel": "Channel 2",
-            },
-        ],
-        "source_count": 2,
-        "average_explicit_fps": 91.5,
-        "tested_games": [
-            {
-                "name": "Cyberpunk 2077",
-                "resolution": "1440p",
-                "avg_fps": 92.0,
-            },
-            {
-                "name": "Alan Wake 2",
-                "resolution": "1440p",
-                "avg_fps": 91.0,
-            },
-        ],
-    }
-    assert top_match["review_consensus_status"] == "ready"
-    assert top_match["review_consensus_reason"] is None
-    assert payload["items"][1]["review_consensus"] is None
-    assert payload["items"][1]["review_consensus_status"] == "not_requested"
-    assert payload["items"][1]["review_consensus_reason"] is None
 
 
 def test_list_matches_returns_bad_request_for_unknown_owned_cpu() -> None:
@@ -375,73 +245,15 @@ def test_list_matches_returns_bad_request_for_unknown_owned_cpu() -> None:
             "use_case": "aaa",
             "resolution": "1440p",
             "budget": 5500,
-            "owned_cpu_sku": "cpu-inexistente",
+            "owned_cpu_id": "cpu-inexistente",
         },
     )
 
     app.dependency_overrides.clear()
 
-    assert cpu_repository.last_requested_sku == "cpu-inexistente"
-    assert gpu_repository.last_requested_sku is None
+    assert cpu_repository.last_requested_id == "cpu-inexistente"
+    assert gpu_repository.last_requested_id is None
     assert response.status_code == 400
     assert response.json() == {
         "detail": "CPU ownada nao encontrada: cpu-inexistente",
-    }
-
-
-def test_get_match_review_consensus_returns_lookup_payload() -> None:
-    app.dependency_overrides[get_cpu_repository] = FakeCpuRepository
-    app.dependency_overrides[get_gpu_repository] = FakeGpuRepository
-    app.dependency_overrides[get_review_consensus_lookup_service] = FakeReviewConsensusLookupService
-    client = TestClient(app)
-
-    response = client.post(
-        "/matches/review-consensus",
-        json={
-            "cpu_sku": "ryzen-5-7600",
-            "gpu_sku": "rtx-4070-super",
-        },
-    )
-
-    app.dependency_overrides.clear()
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "cpu_sku": "ryzen-5-7600",
-        "gpu_sku": "rtx-4070-super",
-        "lookup": {
-            "status": "ready",
-            "reason": None,
-            "review_consensus": {
-                "insight": "Consenso dos reviews sugere que o par aparece como bem equilibrado. Nos trechos com FPS explicito, a media observada ficou em torno de 91.5 FPS.",
-                "warnings": ["Os reviews destacam cenarios com DLSS."],
-                "confidence": "high",
-                "references": [
-                    {
-                        "title": "RTX 4070 Super + Ryzen 5 7600 benchmark",
-                        "url": "https://www.youtube.com/watch?v=video-1",
-                        "channel": "Channel 1",
-                    },
-                    {
-                        "title": "Ryzen 5 7600 with RTX 4070 Super review",
-                        "url": "https://www.youtube.com/watch?v=video-2",
-                        "channel": "Channel 2",
-                    },
-                ],
-                "source_count": 2,
-                "average_explicit_fps": 91.5,
-                "tested_games": [
-                    {
-                        "name": "Cyberpunk 2077",
-                        "resolution": "1440p",
-                        "avg_fps": 92.0,
-                    },
-                    {
-                        "name": "Alan Wake 2",
-                        "resolution": "1440p",
-                        "avg_fps": 91.0,
-                    },
-                ],
-            },
-        },
     }

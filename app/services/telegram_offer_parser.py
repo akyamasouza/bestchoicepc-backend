@@ -25,7 +25,7 @@ class TelegramOfferParser:
         message: dict[str, object],
         *,
         entity_type: str,
-        entity_sku: str,
+        entity_id: str,
         entity_name: str,
     ) -> DailyOffer:
         text = str(message.get("text") or "").strip()
@@ -39,7 +39,7 @@ class TelegramOfferParser:
         return DailyOffer(
             business_date=posted_at.astimezone(self.business_timezone).date().isoformat(),
             entity_type=entity_type,
-            entity_sku=entity_sku,
+            entity_id=entity_id,
             entity_name=entity_name,
             store=self._normalize_store_name(store_display_name),
             store_display_name=store_display_name,

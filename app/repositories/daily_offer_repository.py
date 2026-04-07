@@ -18,7 +18,7 @@ class DailyOfferRepository:
             [
                 ("business_date", ASCENDING),
                 ("entity_type", ASCENDING),
-                ("entity_sku", ASCENDING),
+                ("entity_id", ASCENDING),
                 ("store", ASCENDING),
             ],
             unique=True,
@@ -26,7 +26,7 @@ class DailyOfferRepository:
         self.collection.create_index(
             [
                 ("entity_type", ASCENDING),
-                ("entity_sku", ASCENDING),
+                ("entity_id", ASCENDING),
                 ("business_date", DESCENDING),
             ]
         )
@@ -36,7 +36,7 @@ class DailyOfferRepository:
             {
                 "business_date": offer.business_date,
                 "entity_type": offer.entity_type,
-                "entity_sku": offer.entity_sku,
+                "entity_id": offer.entity_id,
                 "store": offer.store,
             },
             {"$set": offer.model_dump()},

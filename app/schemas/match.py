@@ -12,7 +12,7 @@ class MatchRequest(BaseModel):
 
 
 class MatchComponentResponse(BaseModel):
-    sku: str
+    id: str
     name: str
     ranking_percentile: float
     price: float | None = None

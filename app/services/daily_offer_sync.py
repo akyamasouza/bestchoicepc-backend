@@ -63,6 +63,7 @@ class DailyOfferSyncService:
 
             entity_sku = str(item.get("sku") or "").strip()
             entity_name = str(item.get("name") or "").strip()
+            entity_id = str(item.get("_id"))
 
             if not entity_sku or not entity_name:
                 result.skipped += 1
@@ -86,7 +87,7 @@ class DailyOfferSyncService:
                 offer = self.offer_parser.parse(
                     messages[0],
                     entity_type=self.entity_type,
-                    entity_sku=entity_sku,
+                    entity_id=entity_id,
                     entity_name=entity_name,
                 )
             except ValueError as exc:
@@ -96,8 +97,8 @@ class DailyOfferSyncService:
 
             mismatch_reason = self.entity_matcher.mismatch_reason(
                 entity_name=entity_name,
-                entity_sku=entity_sku,
-                raw_text=offer.raw_text,
+                entity_id=entity_sku,
+                raw_text=messages[0]["text"],
             )
             if mismatch_reason is not None:
                 result.skipped += 1

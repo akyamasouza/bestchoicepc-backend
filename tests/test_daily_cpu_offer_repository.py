@@ -30,7 +30,7 @@ def test_repository_creates_expected_indexes_and_upserts_by_date_sku_store() -> 
     offer = DailyOffer(
         business_date="2026-03-25",
         entity_type="cpu",
-        entity_sku="100-100001084WOF",
+        entity_id="100-100001084WOF",
         entity_name="AMD Ryzen 7 9800X3D",
         store="amazon",
         store_display_name="Amazon",
@@ -48,15 +48,15 @@ def test_repository_creates_expected_indexes_and_upserts_by_date_sku_store() -> 
     repository.upsert(offer)
 
     assert collection.indexes == [
-        ([("business_date", 1), ("entity_type", 1), ("entity_sku", 1), ("store", 1)], True),
-        ([("entity_type", 1), ("entity_sku", 1), ("business_date", -1)], False),
+        ([("business_date", 1), ("entity_type", 1), ("entity_id", 1), ("store", 1)], True),
+        ([("entity_type", 1), ("entity_id", 1), ("business_date", -1)], False),
     ]
     assert collection.operations == [
         (
             {
                 "business_date": "2026-03-25",
                 "entity_type": "cpu",
-                "entity_sku": "100-100001084WOF",
+                "entity_id": "100-100001084WOF",
                 "store": "amazon",
             },
             {"$set": offer.model_dump()},

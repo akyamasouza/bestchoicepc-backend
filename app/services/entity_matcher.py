@@ -29,16 +29,17 @@ class EntityMatcher:
         "series",
     }
 
-    def mismatch_reason(self, *, entity_name: str, entity_sku: str, raw_text: str) -> str | None:
+    def mismatch_reason(self, *, entity_name: str, entity_id: str, raw_text: str) -> str | None:
         title_tokens = set(self._tokenize(self._extract_title(raw_text)))
         entity_tokens = set(self._tokenize(entity_name))
         
-        # O SKU (ID) e o identificador mais robusto. 
+        # O ID e o identificador mais robusto para filtragem estrita. 
         # Ex: 'rtx-4070-super' gera tokens ['rtx', '4070', 'super']
         # Se um desses tokens nao estiver na oferta, o match e invalido por definicao.
-        sku_tokens = set(self._tokenize(entity_sku.replace("-", " ")))
+        sku_tokens = set(self._tokenize(entity_id.replace("-", " ")))
 
         merged_tokens = entity_tokens | sku_tokens
+
 
         required_tokens = {
             token
