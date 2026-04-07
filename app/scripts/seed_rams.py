@@ -1,7 +1,6 @@
-from pymongo import ASCENDING
-
 from app.core.database import close_mongo_client, get_ram_collection
 from app.data.rams import RAMS
+from app.repositories.protocols import ASCENDING
 
 
 def seed_rams() -> int:

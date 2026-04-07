@@ -1,7 +1,6 @@
-from pymongo import ASCENDING
-
 from app.core.database import close_mongo_client, get_motherboard_collection
 from app.data.motherboards import MOTHERBOARDS
+from app.repositories.protocols import ASCENDING
 
 
 def seed_motherboards() -> int:

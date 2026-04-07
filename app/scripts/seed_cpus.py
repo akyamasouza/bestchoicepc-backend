@@ -1,10 +1,9 @@
 from copy import deepcopy
 
-from pymongo import ASCENDING
-
 from app.core.database import close_mongo_client, get_cpu_collection
-from app.data.cpus import CPUS
 from app.data.cpu_techpowerup import resolve_techpowerup_cpu_application_score
+from app.data.cpus import CPUS
+from app.repositories.protocols import ASCENDING
 from app.services.cpu_ranking import CpuRankingEntry, CpuRankingService
 
 

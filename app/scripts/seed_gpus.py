@@ -1,8 +1,7 @@
-from pymongo import ASCENDING
-
 from app.core.database import close_mongo_client, get_gpu_collection
-from app.data.gpus import GPUS
 from app.data.gpus_tomshardware import resolve_tomshardware_gpu_1080p_medium_score
+from app.data.gpus import GPUS
+from app.repositories.protocols import ASCENDING
 
 
 def seed_gpus() -> int:

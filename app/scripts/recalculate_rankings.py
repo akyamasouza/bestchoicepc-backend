@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import argparse
 
-from pymongo.collection import Collection
-
 from app.core.database import get_cpu_collection, get_gpu_collection
+from app.repositories.protocols import CollectionProtocol
 from app.services.cpu_ranking import CpuRankingEntry, CpuRankingService
 from app.services.gpu_ranking import GpuRankingEntry, GpuRankingService
 
@@ -28,7 +27,7 @@ def run(entity_type: str = "all") -> None:
         recalculate_gpu_collection(collection=get_gpu_collection())
 
 
-def recalculate_cpu_collection(*, collection: Collection) -> tuple[int, int]:
+def recalculate_cpu_collection(*, collection: CollectionProtocol) -> tuple[int, int]:
     entries: list[CpuRankingEntry] = []
     missing_ids: list[object] = []
 
@@ -83,7 +82,7 @@ def recalculate_cpu_collection(*, collection: Collection) -> tuple[int, int]:
     return updated, len(missing_ids)
 
 
-def recalculate_gpu_collection(*, collection: Collection) -> tuple[int, int]:
+def recalculate_gpu_collection(*, collection: CollectionProtocol) -> tuple[int, int]:
     entries: list[GpuRankingEntry] = []
     missing_ids: list[object] = []
 
@@ -149,7 +148,7 @@ def _resolve_score(benchmark: dict[str, object], score_field: str) -> int | floa
     return int(value)
 
 
-def _coerce_id(collection: Collection, value: str) -> object:
+def _coerce_id(collection: CollectionProtocol, value: str) -> object:
     sample = collection.find_one({}, {"_id": 1})
     if sample is None:
         return value
