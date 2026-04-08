@@ -18,13 +18,15 @@ def test_parse_amazon_offer_extracts_expected_fields() -> None:
     offer = parser.parse(
         message,
         entity_type="cpu",
-        entity_id="100-100001084WOF",
+        entity_id="507f1f77bcf86cd799439011",
+        entity_sku="ryzen-7-9800x3d",
         entity_name="AMD Ryzen 7 9800X3D",
     )
 
     assert offer.business_date == "2026-03-25"
     assert offer.entity_type == "cpu"
-    assert offer.entity_id == "100-100001084WOF"
+    assert offer.entity_id == "507f1f77bcf86cd799439011"
+    assert offer.entity_sku == "ryzen-7-9800x3d"
     assert offer.store == "amazon"
     assert offer.store_display_name == "Amazon"
     assert offer.price_card == 2799.99
@@ -54,7 +56,8 @@ def test_parse_kabum_offer_uses_business_timezone_for_date() -> None:
     offer = parser.parse(
         message,
         entity_type="cpu",
-        entity_id="100-100001084WOF",
+        entity_id="507f1f77bcf86cd799439011",
+        entity_sku="ryzen-7-9800x3d",
         entity_name="AMD Ryzen 7 9800X3D",
     )
 
@@ -75,7 +78,7 @@ def test_parse_raises_when_store_is_missing() -> None:
     }
 
     try:
-        parser.parse(message, entity_type="cpu", entity_id="sku", entity_name="cpu")
+        parser.parse(message, entity_type="cpu", entity_id="id-1", entity_sku="sku", entity_name="cpu")
     except ValueError as exc:
         assert str(exc) == "Could not extract store from Telegram message."
     else:
@@ -97,7 +100,8 @@ def test_parse_infers_store_from_url_when_label_is_missing() -> None:
     offer = parser.parse(
         message,
         entity_type="cpu",
-        entity_id="100-100001084WOF",
+        entity_id="507f1f77bcf86cd799439011",
+        entity_sku="ryzen-7-9800x3d",
         entity_name="AMD Ryzen 7 9800X3D",
     )
 

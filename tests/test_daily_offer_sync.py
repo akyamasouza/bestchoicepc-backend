@@ -27,11 +27,11 @@ class FakeCatalogCollection:
 
 class FakeOfferCollection:
     def __init__(self) -> None:
-        self.indexes: list[tuple[list[tuple[str, int]], bool]] = []
+        self.indexes: list[tuple[list[tuple[str, int]], bool, dict[str, Any]]] = []
         self.operations: list[tuple[dict[str, Any], dict[str, Any], bool]] = []
 
-    def create_index(self, keys: list[tuple[str, int]], unique: bool = False) -> None:
-        self.indexes.append((keys, unique))
+    def create_index(self, keys: list[tuple[str, int]], unique: bool = False, **kwargs: Any) -> None:
+        self.indexes.append((keys, unique, kwargs))
 
     def update_one(self, query: dict[str, Any], update: dict[str, Any], upsert: bool = False) -> object:
         self.operations.append((query, update, upsert))
@@ -62,7 +62,7 @@ def test_sync_persists_one_daily_offer_per_cpu_query() -> None:
     repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
         {
-            "AMD Ryzen 7 9800X3D": [
+            "ryzen 7 9800x3d": [
                 {
                     "id": 883696,
                     "date_iso": "2026-03-25T22:02:51+00:00",
@@ -75,7 +75,7 @@ def test_sync_persists_one_daily_offer_per_cpu_query() -> None:
                     "url": "https://t.me/pcbuildwizard/883696",
                 }
             ],
-            "AMD Ryzen 7 9700X": [],
+            "ryzen 7 9700x": [],
         }
     )
     service = DailyOfferSyncService(
@@ -94,12 +94,25 @@ def test_sync_persists_one_daily_offer_per_cpu_query() -> None:
     assert result.skipped == 1
     assert result.errors == []
     assert telegram_search_service.calls == [
-        ("AMD Ryzen 7 9700X", None, 1),
-        ("AMD Ryzen 7 9800X3D", None, 1),
+        ("ryzen 7 9700x", None, 1),
+        ("ryzen 7 9800x3d", None, 1),
     ]
     assert offer_collection.indexes == [
-        ([("business_date", 1), ("entity_type", 1), ("entity_id", 1), ("store", 1)], True),
-        ([("entity_type", 1), ("entity_id", 1), ("business_date", -1)], False),
+        (
+            [("business_date", 1), ("entity_type", 1), ("entity_id", 1), ("store", 1)],
+            True,
+            {
+                "name": "daily_offer_unique_entity_store_by_day",
+                "partialFilterExpression": {
+                    "business_date": {"$type": "string"},
+                    "entity_type": {"$type": "string"},
+                    "entity_id": {"$type": "string"},
+                    "entity_sku": {"$type": "string"},
+                    "store": {"$type": "string"},
+                },
+            },
+        ),
+        ([("entity_type", 1), ("entity_id", 1), ("business_date", -1)], False, {}),
     ]
     assert offer_collection.operations[0][0] == {
         "business_date": "2026-03-25",
@@ -115,7 +128,7 @@ def test_sync_collects_parser_errors_and_continues() -> None:
     repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
         {
-            "AMD Ryzen 7 9800X3D": [
+            "ryzen 7 9800x3d": [
                 {
                     "id": 1,
                     "date_iso": "2026-03-25T22:02:51+00:00",
@@ -149,7 +162,7 @@ def test_sync_persists_old_offers_when_found() -> None:
     repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
         {
-            "AMD Ryzen 7 9800X3D": [
+            "ryzen 7 9800x3d": [
                 {
                     "id": 1,
                     "date_iso": "2025-11-01T22:02:51+00:00",
@@ -191,7 +204,7 @@ def test_sync_collects_search_errors_and_continues() -> None:
     repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
         {
-            "AMD Ryzen 7 9700X": [
+            "ryzen 7 9700x": [
                 {
                     "id": 2,
                     "date_iso": "2026-03-25T22:02:51+00:00",
@@ -204,7 +217,7 @@ def test_sync_collects_search_errors_and_continues() -> None:
             ]
         }
     )
-    telegram_search_service.exceptions["AMD Ryzen 7 9800X3D"] = RuntimeError("429")
+    telegram_search_service.exceptions["ryzen 7 9800x3d"] = RuntimeError("429")
     service = DailyOfferSyncService(
         catalog_collection=catalog_collection,
         entity_type="cpu",
@@ -229,7 +242,7 @@ def test_sync_persists_gpu_offers_with_gpu_entity_type() -> None:
     repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
         {
-            "GeForce RTX 5090": [
+            "geforce rtx 5090": [
                 {
                     "id": 10,
                     "date_iso": "2026-03-25T22:02:51+00:00",
@@ -268,7 +281,7 @@ def test_sync_rejects_gpu_variant_mismatch_before_persisting() -> None:
     repository = DailyOfferRepository(offer_collection)
     telegram_search_service = FakeTelegramSearchService(
         {
-            "GeForce RTX 5070": [
+            "geforce rtx 5070": [
                 {
                     "id": 883615,
                     "date_iso": "2026-03-25T21:01:41+00:00",

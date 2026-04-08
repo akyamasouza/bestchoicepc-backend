@@ -15,7 +15,8 @@ class FakeDailyOfferRepository:
             DailyOffer(
                 business_date="2026-03-25",
                 entity_type="cpu",
-                entity_id="100-100001084WOF",
+                entity_id="507f1f77bcf86cd799439011",
+                entity_sku="ryzen-7-9800x3d",
                 entity_name="AMD Ryzen 7 9800X3D",
                 store="amazon",
                 store_display_name="Amazon",
@@ -75,7 +76,8 @@ def test_list_today_daily_cpu_offers() -> None:
         {
             "business_date": "2026-03-25",
             "entity_type": "cpu",
-            "entity_id": "100-100001084WOF",
+            "entity_id": "507f1f77bcf86cd799439011",
+            "entity_sku": "ryzen-7-9800x3d",
             "entity_name": "AMD Ryzen 7 9800X3D",
             "store": "amazon",
             "store_display_name": "Amazon",
@@ -100,7 +102,8 @@ def test_daily_cpu_offer_repository_lists_only_today(monkeypatch) -> None:
             {
                 "business_date": "2026-03-25",
                 "entity_type": "cpu",
-                "entity_id": "100-100001084WOF",
+                "entity_id": "507f1f77bcf86cd799439011",
+                "entity_sku": "ryzen-7-9800x3d",
                 "entity_name": "AMD Ryzen 7 9800X3D",
                 "store": "amazon",
                 "store_display_name": "Amazon",
@@ -117,7 +120,8 @@ def test_daily_cpu_offer_repository_lists_only_today(monkeypatch) -> None:
             {
                 "business_date": "2026-03-24",
                 "entity_type": "cpu",
-                "entity_id": "100-100001404WOF",
+                "entity_id": "507f1f77bcf86cd799439012",
+                "entity_sku": "ryzen-7-9700x",
                 "entity_name": "AMD Ryzen 7 9700X",
                 "store": "kabum",
                 "store_display_name": "KaBuM!",
@@ -141,6 +145,13 @@ def test_daily_cpu_offer_repository_lists_only_today(monkeypatch) -> None:
 
     result = repository.list_today(entity_type="cpu")
 
-    assert collection.find_calls == [{"business_date": "2026-03-25", "entity_type": "cpu"}]
+    assert collection.find_calls == [
+        {
+            "business_date": "2026-03-25",
+            "entity_id": {"$type": "string"},
+            "entity_sku": {"$type": "string"},
+            "entity_type": "cpu",
+        }
+    ]
     assert len(result) == 1
     assert result[0].entity_name == "AMD Ryzen 7 9800X3D"
