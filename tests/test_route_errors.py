@@ -43,6 +43,15 @@ class FailingMatchService:
         raise RuntimeError("falha controlada")
 
 
+class SpyMatchService:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def find_matches(self, **kwargs: object) -> list[object]:
+        self.calls.append(kwargs)
+        return []
+
+
 def _clear_overrides() -> None:
     app.dependency_overrides.clear()
 
@@ -82,7 +91,9 @@ def test_matches_rejects_invalid_payload() -> None:
     _assert_validation_error(response, "use_case", "resolution")
 
 
-def test_matches_preserves_supported_use_case_and_resolution_aliases() -> None:
+def test_matches_normalizes_supported_use_case_aliases() -> None:
+    match_service = SpyMatchService()
+    app.dependency_overrides[get_match_service] = lambda: match_service
     app.dependency_overrides[get_match_cpu_repository] = lambda: EmptyMatchRepository()
     app.dependency_overrides[get_match_gpu_repository] = lambda: EmptyMatchRepository()
     app.dependency_overrides[get_match_daily_offer_repository] = lambda: EmptyDailyOfferRepository()
@@ -101,6 +112,9 @@ def test_matches_preserves_supported_use_case_and_resolution_aliases() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"items": [], "total": 0}
+    assert len(match_service.calls) == 1
+    assert match_service.calls[0]["query"].use_case == "value"
+    assert match_service.calls[0]["query"].resolution == "2160p"
 
 
 def test_matches_returns_bad_request_for_unknown_owned_cpu_and_gpu() -> None:
