@@ -32,6 +32,7 @@ from app.services.match_service import (
 
 
 router = APIRouter(prefix="/matches", tags=["matches"])
+MATCH_OFFER_MAX_AGE_DAYS = 90
 
 
 def get_match_service() -> MatchService:
@@ -93,8 +94,20 @@ def list_matches(
         )
 
     offer_snapshots = [
-        *[_to_offer_snapshot(offer) for offer in daily_offer_repository.list_today(entity_type="cpu")],
-        *[_to_offer_snapshot(offer) for offer in daily_offer_repository.list_today(entity_type="gpu")],
+        *[
+            _to_offer_snapshot(offer)
+            for offer in daily_offer_repository.list_recent(
+                entity_type="cpu",
+                max_age_days=MATCH_OFFER_MAX_AGE_DAYS,
+            )
+        ],
+        *[
+            _to_offer_snapshot(offer)
+            for offer in daily_offer_repository.list_recent(
+                entity_type="gpu",
+                max_age_days=MATCH_OFFER_MAX_AGE_DAYS,
+            )
+        ],
     ]
 
     matches = service.find_matches(

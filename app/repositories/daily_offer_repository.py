@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -51,13 +51,35 @@ class DailyOfferRepository:
 
     def list_today(self, entity_type: str | None = None) -> list[DailyOffer]:
         today = datetime.now(ZoneInfo(settings.business_timezone)).date().isoformat()
-        query: dict[str, Any] = {
-            "business_date": today,
-            "entity_id": {"$type": "string"},
-            "entity_sku": {"$type": "string"},
-        }
+        query = self._canonical_query({"business_date": today})
         if entity_type is not None:
             query["entity_type"] = entity_type
 
         cursor = self.collection.find(query).sort([("entity_name", ASCENDING), ("store", ASCENDING)])
         return [DailyOffer(**document) for document in cursor]
+
+    def list_recent(self, *, entity_type: str | None = None, max_age_days: int = 90) -> list[DailyOffer]:
+        if max_age_days < 0:
+            raise ValueError("max_age_days must be greater than or equal to zero.")
+
+        today = datetime.now(ZoneInfo(settings.business_timezone)).date()
+        cutoff = (today - timedelta(days=max_age_days)).isoformat()
+        query = self._canonical_query({"business_date": {"$gte": cutoff}})
+        if entity_type is not None:
+            query["entity_type"] = entity_type
+
+        cursor = self.collection.find(query).sort([
+            ("business_date", DESCENDING),
+            ("entity_name", ASCENDING),
+            ("store", ASCENDING),
+        ])
+        return [DailyOffer(**document) for document in cursor]
+
+    @staticmethod
+    def _canonical_query(query: dict[str, Any]) -> dict[str, Any]:
+        return {
+            **query,
+            "entity_id": {"$type": "string"},
+            "entity_sku": {"$type": "string"},
+            "status": {"$ne": "rejected"},
+        }

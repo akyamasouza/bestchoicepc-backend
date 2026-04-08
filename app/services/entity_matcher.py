@@ -54,6 +54,16 @@ class EntityMatcher:
         if missing_required:
             return f"mensagem rejeitada por falta de tokens obrigatorios: {', '.join(missing_required)}"
 
+        entity_model_numbers = {
+            token
+            for token in merged_tokens
+            if token.isdigit()
+            and len(token) >= 3
+        }
+        missing_model_numbers = sorted(token for token in entity_model_numbers if token not in title_tokens)
+        if missing_model_numbers:
+            return f"mensagem rejeitada por falta de modelo numerico: {', '.join(missing_model_numbers)}"
+
         # Validacao estrita de discriminadores contidos no SKU
         entity_variants = {token for token in merged_tokens if token in self._PROTECTED_TOKENS}
         title_variants = {token for token in title_tokens if token in self._PROTECTED_TOKENS}
