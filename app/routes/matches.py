@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from app.core.database import (
     coerce_document_id,
@@ -6,6 +6,7 @@ from app.core.database import (
     get_daily_offer_collection,
     get_gpu_collection,
 )
+from app.core.errors import AppError
 from app.repositories.cpu_repository import CpuRepository
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.repositories.gpu_repository import GpuRepository
@@ -13,6 +14,7 @@ from app.repositories.protocols import CollectionProtocol
 from app.schemas.cpu import CpuListItem
 from app.schemas.daily_offer import DailyOffer
 from app.schemas.gpu import GpuListItem
+from app.schemas.error import ApiErrorResponse
 from app.schemas.match import (
     MatchComponentResponse,
     MatchItemResponse,
@@ -54,7 +56,13 @@ def get_daily_offer_repository(
     return DailyOfferRepository(collection)
 
 
-@router.post("", response_model=MatchListResponse)
+@router.post(
+    "",
+    response_model=MatchListResponse,
+    responses={
+        400: {"model": ApiErrorResponse},
+    },
+)
 def list_matches(
     request: MatchRequest,
     service: MatchService = Depends(get_match_service),
@@ -72,31 +80,36 @@ def list_matches(
     ]
 
     if request.owned_cpu_id is not None and not cpu_candidates:
-        raise HTTPException(status_code=400, detail=f"CPU ownada nao encontrada: {request.owned_cpu_id}")
+        raise AppError(
+            code="owned_cpu_not_found",
+            message=f"CPU ownada nao encontrada: {request.owned_cpu_id}",
+            status_code=400,
+        )
     if request.owned_gpu_id is not None and not gpu_candidates:
-        raise HTTPException(status_code=400, detail=f"GPU ownada nao encontrada: {request.owned_gpu_id}")
+        raise AppError(
+            code="owned_gpu_not_found",
+            message=f"GPU ownada nao encontrada: {request.owned_gpu_id}",
+            status_code=400,
+        )
 
     offer_snapshots = [
         *[_to_offer_snapshot(offer) for offer in daily_offer_repository.list_today(entity_type="cpu")],
         *[_to_offer_snapshot(offer) for offer in daily_offer_repository.list_today(entity_type="gpu")],
     ]
 
-    try:
-        matches = service.find_matches(
-            cpus=cpu_candidates,
-            gpus=gpu_candidates,
-            offers=offer_snapshots,
-            query=MatchQuery(
-                use_case=request.use_case,
-                resolution=request.resolution,
-                budget=request.budget,
-                owned_cpu_id=request.owned_cpu_id,
-                owned_gpu_id=request.owned_gpu_id,
-                limit=request.limit,
-            ),
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    matches = service.find_matches(
+        cpus=cpu_candidates,
+        gpus=gpu_candidates,
+        offers=offer_snapshots,
+        query=MatchQuery(
+            use_case=request.use_case,
+            resolution=request.resolution,
+            budget=request.budget,
+            owned_cpu_id=request.owned_cpu_id,
+            owned_gpu_id=request.owned_gpu_id,
+            limit=request.limit,
+        ),
+    )
 
     return MatchListResponse(
         items=[

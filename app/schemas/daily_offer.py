@@ -1,9 +1,11 @@
 from pydantic import BaseModel
 
+from app.schemas.common import EntityType
+
 
 class DailyOffer(BaseModel):
     business_date: str
-    entity_type: str
+    entity_type: EntityType
     entity_id: str
     entity_name: str
     store: str

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from app.core.database import get_psu_collection
 from app.repositories.psu_repository import PsuRepository
 from app.repositories.protocols import CollectionProtocol
+from app.schemas.common import PerformanceTier
 from app.schemas.psu import PsuListResponse, PsuRankingListResponse
 
 
@@ -32,12 +33,12 @@ def list_psus(
 @router.get("/rankings", response_model=PsuRankingListResponse)
 def list_psu_rankings(
     sort: Literal["asc", "desc"] = Query(default="desc"),
-    brand: str | None = Query(default=None),
+    brand: str | None = Query(default=None, min_length=1, max_length=80),
     wattage_w: int | None = Query(default=None, ge=1),
-    form_factor: str | None = Query(default=None),
-    atx_version: str | None = Query(default=None),
-    performance_tier: str | None = Query(default=None, min_length=1, max_length=1),
-    q: str | None = Query(default=None),
+    form_factor: str | None = Query(default=None, min_length=1, max_length=32),
+    atx_version: str | None = Query(default=None, min_length=1, max_length=16),
+    performance_tier: PerformanceTier | None = Query(default=None),
+    q: str | None = Query(default=None, min_length=1, max_length=120),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
     repository: PsuRepository = Depends(get_psu_repository),

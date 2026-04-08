@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from app.schemas.common import PerformanceTier
+
 
 class PsuBenchmark(BaseModel):
     cybenetics_score: float | None = None
@@ -8,7 +10,7 @@ class PsuBenchmark(BaseModel):
 class PsuRanking(BaseModel):
     game_score: float | None = None
     game_percentile: float | None = None
-    performance_tier: str | None = None
+    performance_tier: PerformanceTier | None = None
 
 
 class PsuListItem(BaseModel):

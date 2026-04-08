@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from app.core.database import coerce_document_id, get_gpu_collection
 from app.repositories.gpu_repository import GpuRepository
 from app.repositories.protocols import CollectionProtocol
+from app.schemas.common import PerformanceTier
 from app.schemas.gpu import GpuListResponse, GpuRankingListResponse
 
 
@@ -19,9 +20,9 @@ def get_gpu_repository(
 
 @router.get("", response_model=GpuListResponse)
 def list_gpus(
-    brand: str | None = Query(default=None),
-    category: str | None = Query(default=None),
-    q: str | None = Query(default=None),
+    brand: str | None = Query(default=None, min_length=1, max_length=80),
+    category: str | None = Query(default=None, min_length=1, max_length=80),
+    q: str | None = Query(default=None, min_length=1, max_length=120),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
     repository: GpuRepository = Depends(get_gpu_repository),
@@ -38,11 +39,11 @@ def list_gpus(
 @router.get("/rankings", response_model=GpuRankingListResponse)
 def list_gpu_rankings(
     sort: Literal["asc", "desc"] = Query(default="desc"),
-    brand: str | None = Query(default=None),
-    category: str | None = Query(default=None),
+    brand: str | None = Query(default=None, min_length=1, max_length=80),
+    category: str | None = Query(default=None, min_length=1, max_length=80),
     release_year: int | None = Query(default=None, ge=2000, le=2100),
-    performance_tier: str | None = Query(default=None, min_length=1, max_length=1),
-    q: str | None = Query(default=None),
+    performance_tier: PerformanceTier | None = Query(default=None),
+    q: str | None = Query(default=None, min_length=1, max_length=120),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
     repository: GpuRepository = Depends(get_gpu_repository),

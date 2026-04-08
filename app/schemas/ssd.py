@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from app.schemas.common import PerformanceTier
+
 
 class SsdBenchmark(BaseModel):
     ssd_tester_score: int | None = None
@@ -8,7 +10,7 @@ class SsdBenchmark(BaseModel):
 class SsdRanking(BaseModel):
     game_score: float | None = None
     game_percentile: float | None = None
-    performance_tier: str | None = None
+    performance_tier: PerformanceTier | None = None
 
 
 class SsdListItem(BaseModel):

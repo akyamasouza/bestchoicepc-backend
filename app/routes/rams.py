@@ -17,16 +17,16 @@ def get_ram_repository(
 
 @router.get("", response_model=RamListResponse)
 def list_rams(
-    brand: str | None = Query(default=None),
-    generation: str | None = Query(default=None),
-    form_factor: str | None = Query(default=None),
-    device: str | None = Query(default=None),
+    brand: str | None = Query(default=None, min_length=1, max_length=80),
+    generation: str | None = Query(default=None, min_length=1, max_length=32),
+    form_factor: str | None = Query(default=None, min_length=1, max_length=32),
+    device: str | None = Query(default=None, min_length=1, max_length=32),
     capacity_gb: int | None = Query(default=None, ge=1),
     module_count: int | None = Query(default=None, ge=1),
     speed_mhz: int | None = Query(default=None, ge=1),
-    profile: str | None = Query(default=None),
+    profile: str | None = Query(default=None, min_length=1, max_length=32),
     rgb: bool | None = Query(default=None),
-    q: str | None = Query(default=None),
+    q: str | None = Query(default=None, min_length=1, max_length=120),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
     repository: RamRepository = Depends(get_ram_repository),

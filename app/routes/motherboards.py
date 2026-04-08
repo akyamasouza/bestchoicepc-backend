@@ -17,15 +17,15 @@ def get_motherboard_repository(
 
 @router.get("", response_model=MotherboardListResponse)
 def list_motherboards(
-    brand: str | None = Query(default=None),
-    cpu_brand: str | None = Query(default=None),
-    socket: str | None = Query(default=None),
-    chipset: str | None = Query(default=None),
-    form_factor: str | None = Query(default=None),
-    memory_generation: str | None = Query(default=None),
+    brand: str | None = Query(default=None, min_length=1, max_length=80),
+    cpu_brand: str | None = Query(default=None, min_length=1, max_length=32),
+    socket: str | None = Query(default=None, min_length=1, max_length=32),
+    chipset: str | None = Query(default=None, min_length=1, max_length=64),
+    form_factor: str | None = Query(default=None, min_length=1, max_length=32),
+    memory_generation: str | None = Query(default=None, min_length=1, max_length=16),
     wifi: bool | None = Query(default=None),
     bluetooth: bool | None = Query(default=None),
-    q: str | None = Query(default=None),
+    q: str | None = Query(default=None, min_length=1, max_length=120),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
     repository: MotherboardRepository = Depends(get_motherboard_repository),

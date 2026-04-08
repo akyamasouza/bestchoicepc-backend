@@ -1,14 +1,15 @@
 from pydantic import BaseModel, Field
 
+from app.schemas.common import MatchResolution, MatchUseCase
+
 
 class MatchRequest(BaseModel):
-    use_case: str = Field(min_length=1)
-    resolution: str = Field(min_length=1)
+    use_case: MatchUseCase
+    resolution: MatchResolution
     budget: float | None = Field(default=None, gt=0)
-    owned_cpu_id: str | None = None
-    owned_gpu_id: str | None = None
+    owned_cpu_id: str | None = Field(default=None, min_length=1, max_length=64)
+    owned_gpu_id: str | None = Field(default=None, min_length=1, max_length=64)
     limit: int = Field(default=10, ge=1, le=20)
-
 
 
 class MatchComponentResponse(BaseModel):

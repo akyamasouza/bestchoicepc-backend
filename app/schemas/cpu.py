@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from app.schemas.common import PerformanceTier
+
 
 class CpuBenchmark(BaseModel):
     multithread_rating: int | None = None
@@ -12,7 +14,7 @@ class CpuBenchmark(BaseModel):
 class CpuRanking(BaseModel):
     game_score: float | None = None
     game_percentile: float | None = None
-    performance_tier: str | None = None
+    performance_tier: PerformanceTier | None = None
 
 
 class CpuListItem(BaseModel):

@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from app.schemas.common import PerformanceTier
+
 
 class GpuBenchmark(BaseModel):
     g3d_mark: int | None = None
@@ -11,7 +13,7 @@ class GpuBenchmark(BaseModel):
 class GpuRanking(BaseModel):
     game_score: float | None = None
     game_percentile: float | None = None
-    performance_tier: str | None = None
+    performance_tier: PerformanceTier | None = None
 
 
 class GpuListItem(BaseModel):
