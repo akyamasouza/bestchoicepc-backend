@@ -7,6 +7,10 @@ class Settings(BaseSettings):
         default="BestChoice PC Backend",
         validation_alias=AliasChoices("APP_NAME"),
     )
+    log_level: str = Field(
+        default="INFO",
+        validation_alias=AliasChoices("LOG_LEVEL"),
+    )
     mongo_uri: str = Field(
         default="mongodb://127.0.0.1:27017",
         validation_alias=AliasChoices("DB_URI", "MONGO_URI"),

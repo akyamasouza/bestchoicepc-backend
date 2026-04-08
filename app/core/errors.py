@@ -7,10 +7,11 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.core.logging import REQUEST_ID_HEADER
 from app.schemas.error import ApiErrorDetail, ApiErrorResponse
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app.errors")
 
 
 class AppError(Exception):
@@ -31,14 +32,15 @@ class AppError(Exception):
 
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
-    async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
+    async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content=ApiErrorResponse(detail=exc.message).model_dump(),
+            headers=_request_id_headers(request),
         )
 
     @app.exception_handler(RequestValidationError)
-    async def handle_request_validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+    async def handle_request_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         details = [
             {
                 "loc": list(item.get("loc", ())),
@@ -50,16 +52,34 @@ def register_error_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=422,
             content=ApiErrorResponse(detail=details).model_dump(),
+            headers=_request_id_headers(request),
         )
 
     @app.exception_handler(Exception)
     async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
-        logger.exception("Unhandled error while processing %s %s", request.method, request.url.path)
+        logger.exception(
+            "unexpected_error",
+            extra={
+                "event": "unexpected_error",
+                "request_id": getattr(request.state, "request_id", None),
+                "method": request.method,
+                "path": request.url.path,
+            },
+        )
         response = _build_error_response(
             detail="Erro interno inesperado",
         )
-        return JSONResponse(status_code=500, content=response.model_dump())
+        return JSONResponse(
+            status_code=500,
+            content=response.model_dump(),
+            headers=_request_id_headers(request),
+        )
 
 
 def _build_error_response(*, detail: str) -> ApiErrorResponse:
     return ApiErrorResponse(detail=detail)
+
+
+def _request_id_headers(request: Request) -> dict[str, str]:
+    request_id = getattr(request.state, "request_id", None)
+    return {REQUEST_ID_HEADER: request_id} if request_id is not None else {}

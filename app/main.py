@@ -3,9 +3,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.errors import register_error_handlers
 from app.core.config import settings
 from app.core.database import close_mongo_client
+from app.core.errors import register_error_handlers
+from app.core.logging import configure_logging, register_request_logging_middleware
 from app.routes.cpus import router as cpus_router
 from app.routes.daily_offers import router as daily_offers_router
 from app.routes.gpus import router as gpus_router
@@ -23,7 +24,9 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+configure_logging(settings.log_level)
 register_error_handlers(app)
+register_request_logging_middleware(app)
 
 app.add_middleware(
     CORSMiddleware,
