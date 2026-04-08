@@ -74,8 +74,10 @@ class DailyOfferSyncService:
                 result.errors.append(f"{entity_label} sem sku ou nome foi ignorada durante o sync.")
                 continue
 
+            search_query = self._telegram_search_query(entity_sku)
+
             try:
-                messages = await self.telegram_search_service.search_channel(entity_name, channel=channel, limit=limit)
+                messages = await self.telegram_search_service.search_channel(search_query, channel=channel, limit=limit)
             except Exception as exc:
                 result.skipped += 1
                 result.errors.append(f"{entity_sku}: falha ao buscar no Telegram ({exc})")
@@ -92,6 +94,7 @@ class DailyOfferSyncService:
                     messages[0],
                     entity_type=self.entity_type,
                     entity_id=entity_id,
+                    entity_sku=entity_sku,
                     entity_name=entity_name,
                 )
             except ValueError as exc:
@@ -113,3 +116,7 @@ class DailyOfferSyncService:
             result.persisted += 1
 
         return result
+
+    @staticmethod
+    def _telegram_search_query(entity_sku: str) -> str:
+        return " ".join(entity_sku.replace("_", "-").replace("-", " ").split())

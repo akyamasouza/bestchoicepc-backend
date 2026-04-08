@@ -7,6 +7,7 @@ class DailyOffer(BaseModel):
     business_date: str
     entity_type: EntityType
     entity_id: str
+    entity_sku: str
     entity_name: str
     store: str
     store_display_name: str

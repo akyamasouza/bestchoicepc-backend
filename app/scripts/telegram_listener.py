@@ -3,7 +3,7 @@ import logging
 import sys
 from typing import Any
 
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, functions
 
 from app.core.config import settings
 from app.core.database import (
@@ -16,8 +16,10 @@ from app.core.database import (
     get_ssd_collection,
 )
 from app.repositories.daily_offer_repository import DailyOfferRepository
+from app.schemas.common import EntityType
 from app.services.entity_matcher import EntityMatcher
 from app.services.telegram_offer_parser import TelegramOfferParser
+from app.services.telegram_topic_router import TelegramTopicRouter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("telegram_listener")
@@ -25,11 +27,11 @@ logger = logging.getLogger("telegram_listener")
 class ReverseMatcher:
     def __init__(self):
         self.matcher = EntityMatcher()
-        self.catalog = self._load_catalog()
+        self.catalog_by_entity_type = self._load_catalog()
     
-    def _load_catalog(self) -> list[dict[str, Any]]:
+    def _load_catalog(self) -> dict[str, list[dict[str, Any]]]:
         logger.info("Carregando catalogo de hardwares em memoria...")
-        catalog = []
+        catalog_by_entity_type: dict[str, list[dict[str, Any]]] = {}
         collections = {
             "cpu": get_cpu_collection(),
             "gpu": get_gpu_collection(),
@@ -39,30 +41,96 @@ class ReverseMatcher:
             "ssd": get_ssd_collection(),
         }
         for entity_type, col in collections.items():
+            catalog_by_entity_type[entity_type] = []
             for item in col.find({}, {"sku": 1, "name": 1}):
                 if "sku" in item and "name" in item:
-                    catalog.append({
+                    catalog_by_entity_type[entity_type].append({
                         "entity_type": entity_type,
                         "entity_id": str(item["_id"]),
                         "sku": str(item["sku"]),
                         "name": str(item["name"]),
                     })
-        logger.info(f"Catalogo carregado: {len(catalog)} itens na memoria.")
-        # Ordenamos pelo tamanho do sku (descendente) para tentar matches com SKUs maiores primeiro (mais específicos)
-        catalog.sort(key=lambda x: len(x["sku"]), reverse=True)
-        return catalog
 
-    def find_match(self, raw_text: str) -> dict[str, Any] | None:
-        """Busca O(N) no catalogo comparando match estrito com os tokens."""
-        for item in self.catalog:
+            # Ordenamos pelo tamanho do sku (descendente) para tentar matches mais especificos primeiro.
+            catalog_by_entity_type[entity_type].sort(key=lambda x: len(x["sku"]), reverse=True)
+
+        total_items = sum(len(items) for items in catalog_by_entity_type.values())
+        logger.info("Catalogo carregado: %s itens na memoria.", total_items)
+        return catalog_by_entity_type
+
+    def find_match(self, raw_text: str, entity_type: EntityType | None = None) -> dict[str, Any] | None:
+        """Busca no catalogo comparando match estrito com os tokens."""
+        candidates = self._candidates(entity_type)
+        for item in candidates:
             reason = self.matcher.mismatch_reason(
                 entity_name=item["name"],
                 entity_id=item["sku"],
                 raw_text=raw_text,
             )
-            # Se a reason for None, significa match perfeitamente aceitavel
             if reason is None:
                 return item
+        return None
+
+    def _candidates(self, entity_type: EntityType | None) -> list[dict[str, Any]]:
+        if entity_type is not None:
+            return self.catalog_by_entity_type.get(entity_type, [])
+
+        return [
+            item
+            for catalog in self.catalog_by_entity_type.values()
+            for item in catalog
+        ]
+
+
+class TelegramForumTopicResolver:
+    def __init__(self, client: TelegramClient, channel: str) -> None:
+        self.client = client
+        self.channel = channel
+        self._topic_titles_by_id: dict[int, str | None] = {}
+
+    async def resolve_topic_title(self, message: Any) -> str | None:
+        topic_id = self.extract_topic_id(message)
+        if topic_id is None:
+            return None
+
+        if topic_id in self._topic_titles_by_id:
+            return self._topic_titles_by_id[topic_id]
+
+        try:
+            result = await self.client(
+                functions.messages.GetForumTopicsByIDRequest(
+                    peer=self.channel,
+                    topics=[topic_id],
+                )
+            )
+        except Exception as exc:
+            logger.warning("Nao foi possivel resolver topico do Telegram. topic_id=%s erro=%s", topic_id, exc)
+            self._topic_titles_by_id[topic_id] = None
+            return None
+
+        for topic in getattr(result, "topics", []):
+            if getattr(topic, "id", None) == topic_id or getattr(topic, "top_message", None) == topic_id:
+                title = getattr(topic, "title", None)
+                self._topic_titles_by_id[topic_id] = title
+                return title
+
+        self._topic_titles_by_id[topic_id] = None
+        return None
+
+    @staticmethod
+    def extract_topic_id(message: Any) -> int | None:
+        reply_to = getattr(message, "reply_to", None)
+        if reply_to is None:
+            return None
+
+        topic_id = getattr(reply_to, "reply_to_top_id", None)
+        if topic_id is not None:
+            return int(topic_id)
+
+        if getattr(reply_to, "forum_topic", False):
+            reply_to_msg_id = getattr(reply_to, "reply_to_msg_id", None)
+            return int(reply_to_msg_id) if reply_to_msg_id is not None else None
+
         return None
 
 async def main():
@@ -78,11 +146,13 @@ async def main():
     logger.info(f"Inicializando listener Telegram-Push para o canal: {channel_to_listen}")
 
     reverse_matcher = ReverseMatcher()
+    topic_router = TelegramTopicRouter()
     offer_parser = TelegramOfferParser()
     repository = DailyOfferRepository(get_daily_offer_collection())
     repository.ensure_indexes()
 
     client = TelegramClient(settings.telegram_session_path, settings.telegram_api_id, settings.telegram_api_hash)
+    topic_resolver = TelegramForumTopicResolver(client, channel_to_listen)
     
     # Event Listener passivo (push-based) para interceptar novas ofertas em tempo real
     @client.on(events.NewMessage(chats=[channel_to_listen]))
@@ -92,10 +162,21 @@ async def main():
             if not raw_text:
                 return
 
-            logger.info("Nova mensagem recebida. Analisando...")
+            topic_title = await topic_resolver.resolve_topic_title(event.message)
+            entity_type = topic_router.resolve_entity_type(topic_title)
 
-            # 1. Reverse matching pra descobrir qual componente e
-            match = reverse_matcher.find_match(raw_text)
+            if topic_title is not None and entity_type is None:
+                logger.info("Mensagem ignorada: topico sem mapeamento de hardware. topico=%s", topic_title)
+                return
+
+            logger.info(
+                "Nova mensagem recebida. Analisando. topico=%s entity_type=%s",
+                topic_title or "sem_topico",
+                entity_type or "auto",
+            )
+
+            # 1. Reverse matching descobre qual componente e; em forum reconhecido, limita a categoria do topico.
+            match = reverse_matcher.find_match(raw_text, entity_type=entity_type)
             if not match:
                 logger.info("Mensagem descartada: nenhum hardware compativel encontrado na base.")
                 return
@@ -121,6 +202,7 @@ async def main():
                 message_data,
                 entity_type=match["entity_type"],
                 entity_id=match["entity_id"],
+                entity_sku=match["sku"],
                 entity_name=match["name"],
             )
 

@@ -63,6 +63,7 @@ class CollectionProtocol(Protocol):
         self,
         keys: list[tuple[str, int]],
         unique: bool = False,
+        **kwargs: Any,
     ) -> Any: ...
 
     def update_one(

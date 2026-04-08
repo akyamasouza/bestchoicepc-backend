@@ -20,6 +20,14 @@ class DailyOfferRepository:
                 ("store", ASCENDING),
             ],
             unique=True,
+            name="daily_offer_unique_entity_store_by_day",
+            partialFilterExpression={
+                "business_date": {"$type": "string"},
+                "entity_type": {"$type": "string"},
+                "entity_id": {"$type": "string"},
+                "entity_sku": {"$type": "string"},
+                "store": {"$type": "string"},
+            },
         )
         self.collection.create_index(
             [
@@ -43,7 +51,11 @@ class DailyOfferRepository:
 
     def list_today(self, entity_type: str | None = None) -> list[DailyOffer]:
         today = datetime.now(ZoneInfo(settings.business_timezone)).date().isoformat()
-        query: dict[str, str] = {"business_date": today}
+        query: dict[str, Any] = {
+            "business_date": today,
+            "entity_id": {"$type": "string"},
+            "entity_sku": {"$type": "string"},
+        }
         if entity_type is not None:
             query["entity_type"] = entity_type
 
