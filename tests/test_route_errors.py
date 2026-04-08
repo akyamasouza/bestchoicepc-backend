@@ -6,11 +6,19 @@ from app.main import app
 from app.routes.cpus import get_cpu_repository
 from app.routes.daily_offers import get_daily_offer_repository
 from app.routes.gpus import get_gpu_repository
-from app.routes.matches import get_match_service
+from app.routes.matches import (
+    get_cpu_repository as get_match_cpu_repository,
+    get_daily_offer_repository as get_match_daily_offer_repository,
+    get_gpu_repository as get_match_gpu_repository,
+    get_match_service,
+)
 
 
 class EmptyDailyOfferRepository:
     def list_today(self, entity_type: str | None = None) -> list[object]:
+        return []
+
+    def list_recent(self, *, entity_type: str | None = None, max_age_days: int = 90) -> list[object]:
         return []
 
 
@@ -75,9 +83,9 @@ def test_matches_rejects_invalid_payload() -> None:
 
 
 def test_matches_preserves_supported_use_case_and_resolution_aliases() -> None:
-    app.dependency_overrides[get_cpu_repository] = lambda: EmptyMatchRepository()
-    app.dependency_overrides[get_gpu_repository] = lambda: EmptyMatchRepository()
-    app.dependency_overrides[get_daily_offer_repository] = lambda: EmptyDailyOfferRepository()
+    app.dependency_overrides[get_match_cpu_repository] = lambda: EmptyMatchRepository()
+    app.dependency_overrides[get_match_gpu_repository] = lambda: EmptyMatchRepository()
+    app.dependency_overrides[get_match_daily_offer_repository] = lambda: EmptyDailyOfferRepository()
     client = TestClient(app)
 
     response = client.post(
@@ -97,9 +105,9 @@ def test_matches_preserves_supported_use_case_and_resolution_aliases() -> None:
 
 def test_matches_returns_bad_request_for_unknown_owned_cpu_and_gpu() -> None:
     app.dependency_overrides[get_match_service] = lambda: FailingMatchService()
-    app.dependency_overrides[get_cpu_repository] = lambda: EmptyMatchRepository()
-    app.dependency_overrides[get_gpu_repository] = lambda: EmptyMatchRepository()
-    app.dependency_overrides[get_daily_offer_repository] = lambda: EmptyDailyOfferRepository()
+    app.dependency_overrides[get_match_cpu_repository] = lambda: EmptyMatchRepository()
+    app.dependency_overrides[get_match_gpu_repository] = lambda: EmptyMatchRepository()
+    app.dependency_overrides[get_match_daily_offer_repository] = lambda: EmptyDailyOfferRepository()
     client = TestClient(app)
 
     response = client.post(
@@ -124,9 +132,9 @@ def test_matches_returns_bad_request_for_unknown_owned_cpu_and_gpu() -> None:
 
 def test_matches_returns_500_for_unexpected_service_error() -> None:
     app.dependency_overrides[get_match_service] = lambda: FailingMatchService()
-    app.dependency_overrides[get_cpu_repository] = lambda: EmptyMatchRepository()
-    app.dependency_overrides[get_gpu_repository] = lambda: EmptyMatchRepository()
-    app.dependency_overrides[get_daily_offer_repository] = lambda: EmptyDailyOfferRepository()
+    app.dependency_overrides[get_match_cpu_repository] = lambda: EmptyMatchRepository()
+    app.dependency_overrides[get_match_gpu_repository] = lambda: EmptyMatchRepository()
+    app.dependency_overrides[get_match_daily_offer_repository] = lambda: EmptyDailyOfferRepository()
     client = TestClient(app, raise_server_exceptions=False)
 
     response = client.post(

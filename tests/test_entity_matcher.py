@@ -39,6 +39,18 @@ def test_rejects_gpu_super_offer_for_base_model() -> None:
     assert reason == "mensagem rejeitada por discriminadores conflitantes: super"
 
 
+def test_rejects_gpu_offer_for_different_numeric_model() -> None:
+    matcher = EntityMatcher()
+
+    reason = matcher.mismatch_reason(
+        entity_name="GeForce RTX 5090",
+        entity_id="geforce-rtx-5090",
+        raw_text="Placa de Video Palit GeForce RTX 5060 White OC, 8 GB GDDR7, PCIe x8 5.0 R$ 2.600,00",
+    )
+
+    assert reason == "mensagem rejeitada por falta de modelo numerico: 5090"
+
+
 def test_rejects_gpu_memory_mismatch() -> None:
     matcher = EntityMatcher()
 
@@ -85,4 +97,3 @@ def test_rejects_cpu_x3d_offer_for_x_model() -> None:
     )
 
     assert reason == "mensagem rejeitada por discriminadores conflitantes: x3d"
-

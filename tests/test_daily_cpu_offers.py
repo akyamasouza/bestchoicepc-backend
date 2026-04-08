@@ -57,10 +57,21 @@ class FakeCollection:
         filtered = [
             document
             for document in self.documents
-            if document.get("business_date") == query["business_date"]
+            if self._matches_business_date(document, query["business_date"])
             and document.get("entity_type") == query.get("entity_type", document.get("entity_type"))
+            and isinstance(document.get("entity_id"), str)
+            and isinstance(document.get("entity_sku"), str)
+            and document.get("status") != "rejected"
         ]
         return FakeCursor(filtered)
+
+    @staticmethod
+    def _matches_business_date(document: dict[str, Any], condition: str | dict[str, str]) -> bool:
+        business_date = document.get("business_date")
+        if isinstance(condition, dict):
+            return business_date >= condition["$gte"]
+
+        return business_date == condition
 
 
 def test_list_today_daily_cpu_offers() -> None:
@@ -150,8 +161,93 @@ def test_daily_cpu_offer_repository_lists_only_today(monkeypatch) -> None:
             "business_date": "2026-03-25",
             "entity_id": {"$type": "string"},
             "entity_sku": {"$type": "string"},
+            "status": {"$ne": "rejected"},
             "entity_type": "cpu",
         }
     ]
     assert len(result) == 1
     assert result[0].entity_name == "AMD Ryzen 7 9800X3D"
+
+
+def test_daily_cpu_offer_repository_lists_recent_canonical_offers(monkeypatch) -> None:
+    from app.repositories.daily_offer_repository import DailyOfferRepository
+
+    collection = FakeCollection(
+        [
+            {
+                "business_date": "2026-03-25",
+                "entity_type": "cpu",
+                "entity_id": "507f1f77bcf86cd799439011",
+                "entity_sku": "ryzen-7-9800x3d",
+                "entity_name": "AMD Ryzen 7 9800X3D",
+                "store": "amazon",
+                "store_display_name": "Amazon",
+                "price_card": 2799.99,
+                "installments": 10,
+                "source_url": "https://example.com/amazon",
+                "telegram_message_id": 1,
+                "telegram_message_url": "https://t.me/pcbuildwizard/1",
+                "posted_at": "2026-03-25T22:02:51Z",
+                "lowest_price_90d": 2679.98,
+                "median_price_90d": 2980.35,
+                "raw_text": "a",
+            },
+            {
+                "business_date": "2025-12-25",
+                "entity_type": "cpu",
+                "entity_id": "507f1f77bcf86cd799439012",
+                "entity_sku": "ryzen-7-9700x",
+                "entity_name": "AMD Ryzen 7 9700X",
+                "store": "kabum",
+                "store_display_name": "KaBuM!",
+                "price_card": 2199.99,
+                "installments": 10,
+                "source_url": "https://example.com/kabum",
+                "telegram_message_id": 2,
+                "telegram_message_url": "https://t.me/pcbuildwizard/2",
+                "posted_at": "2025-12-25T22:02:51Z",
+                "lowest_price_90d": 2100.0,
+                "median_price_90d": 2400.0,
+                "raw_text": "b",
+            },
+            {
+                "business_date": "2026-03-26",
+                "entity_type": "cpu",
+                "entity_id": "507f1f77bcf86cd799439013",
+                "entity_name": "Legado sem sku",
+                "store": "pichau",
+                "store_display_name": "Pichau",
+                "price_card": 900.0,
+                "raw_text": "c",
+            },
+            {
+                "business_date": "2026-03-25",
+                "entity_type": "gpu",
+                "entity_id": "507f1f77bcf86cd799439014",
+                "entity_sku": "rtx-4070-super",
+                "entity_name": "GeForce RTX 4070 Super",
+                "store": "kabum",
+                "store_display_name": "KaBuM!",
+                "price_card": 3800.0,
+                "raw_text": "d",
+            },
+        ]
+    )
+    monkeypatch.setattr(
+        "app.repositories.daily_offer_repository.datetime",
+        type("FrozenDateTime", (), {"now": staticmethod(lambda _tz: __import__("datetime").datetime(2026, 4, 7, 12, 0, 0))}),
+    )
+    repository = DailyOfferRepository(collection)
+
+    result = repository.list_recent(entity_type="cpu", max_age_days=90)
+
+    assert collection.find_calls == [
+        {
+            "business_date": {"$gte": "2026-01-07"},
+            "entity_id": {"$type": "string"},
+            "entity_sku": {"$type": "string"},
+            "status": {"$ne": "rejected"},
+            "entity_type": "cpu",
+        }
+    ]
+    assert [item.entity_sku for item in result] == ["ryzen-7-9800x3d"]

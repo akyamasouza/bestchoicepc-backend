@@ -100,7 +100,11 @@ class FakeGpuRepository:
 
 
 class FakeDailyOfferRepository:
-    def list_today(self, entity_type: str | None = None) -> list[DailyOffer]:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str | None, int]] = []
+
+    def list_recent(self, *, entity_type: str | None = None, max_age_days: int = 90) -> list[DailyOffer]:
+        self.calls.append((entity_type, max_age_days))
         if entity_type == "cpu":
             return [
                 DailyOffer(
@@ -187,9 +191,10 @@ class FakeDailyOfferRepository:
 def test_list_matches_returns_ranked_pairs() -> None:
     cpu_repository = FakeCpuRepository()
     gpu_repository = FakeGpuRepository()
+    daily_offer_repository = FakeDailyOfferRepository()
     app.dependency_overrides[get_cpu_repository] = lambda: cpu_repository
     app.dependency_overrides[get_gpu_repository] = lambda: gpu_repository
-    app.dependency_overrides[get_daily_offer_repository] = FakeDailyOfferRepository
+    app.dependency_overrides[get_daily_offer_repository] = lambda: daily_offer_repository
     client = TestClient(app)
 
     response = client.post(
@@ -209,6 +214,7 @@ def test_list_matches_returns_ranked_pairs() -> None:
 
     assert cpu_repository.last_requested_id is None
     assert gpu_repository.last_requested_id is None
+    assert daily_offer_repository.calls == [("cpu", 90), ("gpu", 90)]
     assert payload["total"] == 3
     assert len(payload["items"]) == 3
     top_match = payload["items"][0]
@@ -238,9 +244,10 @@ def test_list_matches_returns_ranked_pairs() -> None:
 def test_list_matches_returns_bad_request_for_unknown_owned_cpu() -> None:
     cpu_repository = FakeCpuRepository()
     gpu_repository = FakeGpuRepository()
+    daily_offer_repository = FakeDailyOfferRepository()
     app.dependency_overrides[get_cpu_repository] = lambda: cpu_repository
     app.dependency_overrides[get_gpu_repository] = lambda: gpu_repository
-    app.dependency_overrides[get_daily_offer_repository] = FakeDailyOfferRepository
+    app.dependency_overrides[get_daily_offer_repository] = lambda: daily_offer_repository
     client = TestClient(app)
 
     response = client.post(
