@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import os
 from pathlib import Path
 import sys
 from typing import Any
+from urllib.parse import urlparse
 
 from telethon import TelegramClient, functions, types
 
@@ -49,6 +51,66 @@ class TelegramChannelSearchService:
         self.default_channel = default_channel if default_channel is not None else settings.telegram_default_channel
         self.session_path = session_path if session_path is not None else settings.telegram_session_path
         self._client: TelegramClient | None = None
+
+    @staticmethod
+    def _proxy_config() -> dict[str, Any] | None:
+        proxy_url = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+        if not proxy_url:
+            return None
+
+        parsed = urlparse(proxy_url)
+        scheme = parsed.scheme.lower()
+        if scheme not in {"http", "socks4", "socks5"}:
+            raise RuntimeError(f"Unsupported Telegram proxy scheme: {parsed.scheme or '<empty>'}")
+
+        try:
+            port = parsed.port
+        except ValueError as exc:
+            raise RuntimeError("Telegram proxy URL must include a valid port.") from exc
+
+        if not parsed.hostname or port is None:
+            raise RuntimeError("Telegram proxy URL must include host and port.")
+
+        return {
+            "proxy_type": scheme,
+            "addr": parsed.hostname,
+            "port": port,
+            "username": parsed.username,
+            "password": parsed.password,
+        }
+
+    @classmethod
+    def _build_client_kwargs(cls) -> dict[str, Any]:
+        proxy = cls._proxy_config()
+        if proxy is None:
+            return {}
+
+        return {"proxy": proxy}
+
+    @classmethod
+    def _create_client(cls, session_path: Path, api_id: int, api_hash: str) -> TelegramClient:
+        return TelegramClient(str(session_path), api_id, api_hash, **cls._build_client_kwargs())
+
+    @staticmethod
+    def _ensure_session_directory(session_path: Path) -> None:
+        session_path.parent.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _ensure_api_credentials(api_id: int | None, api_hash: str | None) -> tuple[int, str]:
+        if api_id is None or not api_hash:
+            raise RuntimeError("Configure TELEGRAM_API_ID and TELEGRAM_API_HASH before using the Telegram API.")
+
+        return api_id, api_hash
+
+    def _session_path(self) -> Path:
+        return Path(self.session_path)
+
+    def _new_client(self) -> TelegramClient:
+        api_id, api_hash = self._ensure_api_credentials(self.api_id, self.api_hash)
+        session_path = self._session_path()
+        self._ensure_session_directory(session_path)
+        return self._create_client(session_path, api_id, api_hash)
+
 
     async def search_channel(
         self,
@@ -96,13 +158,7 @@ class TelegramChannelSearchService:
         if self._client is not None:
             return self._client
 
-        if self.api_id is None or not self.api_hash:
-            raise RuntimeError("Configure TELEGRAM_API_ID and TELEGRAM_API_HASH before using the Telegram API.")
-
-        session_path = Path(self.session_path)
-        session_path.parent.mkdir(parents=True, exist_ok=True)
-
-        client = TelegramClient(str(session_path), self.api_id, self.api_hash)
+        client = self._new_client()
         await client.connect()
 
         if not await client.is_user_authorized():
@@ -116,16 +172,12 @@ class TelegramChannelSearchService:
         return client
 
     async def login(self) -> None:
-        if self.api_id is None or not self.api_hash:
-            raise RuntimeError("Configure TELEGRAM_API_ID and TELEGRAM_API_HASH before using the Telegram API.")
+        self._ensure_api_credentials(self.api_id, self.api_hash)
 
         if not sys.stdin.isatty():
             raise RuntimeError("Interactive Telegram login requires a TTY.")
 
-        session_path = Path(self.session_path)
-        session_path.parent.mkdir(parents=True, exist_ok=True)
-
-        client = TelegramClient(str(session_path), self.api_id, self.api_hash)
+        client = self._new_client()
 
         try:
             await client.start()
