@@ -1,0 +1,9 @@
+{
+  "profile": "codex",
+  "env": {
+    "OPENAI_BASE_URL": "https://chatgpt.com/backend-api/codex",
+    "OPENAI_MODEL": "codexplan",
+    "CHATGPT_ACCOUNT_ID": "1ecc6f62-aa91-46b6-9546-1dab91f6d5c8"
+  },
+  "createdAt": "2026-04-09T13:26:55.315Z"
+}
