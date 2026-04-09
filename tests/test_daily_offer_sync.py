@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from app.repositories.catalog_candidate_repository import CatalogCandidateRepository
 from app.repositories.daily_offer_repository import DailyOfferRepository
+from app.services.catalog_candidate_pipeline import CatalogCandidatePipelineService
 from app.services.daily_offer_sync import DailyOfferSyncService
 from app.services.telegram_offer_parser import TelegramOfferParser
 
@@ -38,6 +40,82 @@ class FakeOfferCollection:
         return object()
 
 
+class FakeCandidateCollection:
+    def __init__(self) -> None:
+        self.documents: list[dict[str, Any]] = []
+        self.indexes: list[tuple[list[tuple[str, int]], bool, dict[str, Any]]] = []
+
+    def count_documents(self, query: dict[str, Any]) -> int:
+        return len([doc for doc in self.documents if self._matches(doc, query)])
+
+    def find(self, query: dict[str, Any], projection: dict[str, int] | None = None) -> FakeCursor:
+        documents = [self._project(doc, projection) for doc in self.documents if self._matches(doc, query)]
+        return FakeCursor(documents)
+
+    def find_one(self, query: dict[str, Any], projection: dict[str, int] | None = None) -> dict[str, Any] | None:
+        for document in self.documents:
+            if self._matches(document, query):
+                return self._project(document, projection)
+        return None
+
+    def create_index(self, keys: list[tuple[str, int]], unique: bool = False, **kwargs: Any) -> None:
+        self.indexes.append((keys, unique, kwargs))
+
+    def update_one(self, query: dict[str, Any], update: dict[str, Any], upsert: bool = False) -> object:
+        for document in self.documents:
+            if self._matches(document, query):
+                self._apply_update(document, update)
+                return object()
+        if upsert:
+            document = dict(query)
+            self._apply_update(document, update)
+            self.documents.append(document)
+        return object()
+
+    def update_many(self, query: dict[str, Any], update: dict[str, Any]) -> object:
+        for document in self.documents:
+            if self._matches(document, query):
+                self._apply_update(document, update)
+        return object()
+
+    def replace_one(self, query: dict[str, Any], replacement: dict[str, Any], upsert: bool = False) -> object:
+        for index, document in enumerate(self.documents):
+            if self._matches(document, query):
+                replacement = dict(replacement)
+                replacement.setdefault("_id", document.get("_id"))
+                self.documents[index] = replacement
+                return object()
+        if upsert:
+            self.documents.append(dict(replacement))
+        return object()
+
+    @staticmethod
+    def _matches(document: dict[str, Any], query: dict[str, Any]) -> bool:
+        for key, value in query.items():
+            if isinstance(value, dict) and "$in" in value:
+                if document.get(key) not in value["$in"]:
+                    return False
+                continue
+            if document.get(key) != value:
+                return False
+        return True
+
+    @staticmethod
+    def _project(document: dict[str, Any], projection: dict[str, int] | None) -> dict[str, Any]:
+        if projection is None:
+            return dict(document)
+        return {key: value for key, value in document.items() if key in projection or key == "_id"}
+
+    @staticmethod
+    def _apply_update(document: dict[str, Any], update: dict[str, Any]) -> None:
+        for key, value in update.get("$set", {}).items():
+            document[key] = value
+        for key, value in update.get("$setOnInsert", {}).items():
+            document.setdefault(key, value)
+        for key, value in update.get("$inc", {}).items():
+            document[key] = int(document.get(key, 0)) + int(value)
+
+
 class FakeTelegramSearchService:
     def __init__(self, responses: dict[str, list[dict[str, Any]]]) -> None:
         self.responses = responses
@@ -49,6 +127,15 @@ class FakeTelegramSearchService:
         if query in self.exceptions:
             raise self.exceptions[query]
         return self.responses.get(query, [])
+
+
+def build_candidate_pipeline(candidate_collection: FakeCandidateCollection, offer_collection: FakeOfferCollection) -> CatalogCandidatePipelineService:
+    repository = DailyOfferRepository(offer_collection)
+    return CatalogCandidatePipelineService(
+        candidate_repository=CatalogCandidateRepository(candidate_collection),
+        daily_offer_repository=repository,
+        offer_parser=TelegramOfferParser(),
+    )
 
 
 def test_sync_persists_one_daily_offer_per_cpu_query() -> None:
@@ -309,4 +396,43 @@ def test_sync_rejects_gpu_variant_mismatch_before_persisting() -> None:
     assert result.persisted == 0
     assert result.skipped == 1
     assert result.errors == ["geforce-rtx-5070: mensagem rejeitada por discriminadores conflitantes: ti"]
+    assert offer_collection.operations == []
+
+
+def test_sync_registers_multi_hardware_candidate_on_identity_mismatch() -> None:
+    catalog_collection = FakeCatalogCollection([{"_id": "id-4", "sku": "geforce-rtx-5070", "name": "GeForce RTX 5070"}])
+    offer_collection = FakeOfferCollection()
+    candidate_collection = FakeCandidateCollection()
+    repository = DailyOfferRepository(offer_collection)
+    telegram_search_service = FakeTelegramSearchService(
+        {
+            "geforce rtx 5070": [
+                {
+                    "id": 883615,
+                    "date_iso": "2026-03-25T21:01:41+00:00",
+                    "text": (
+                        "Placa de Video PNY GeForce RTX 5070 Ti OC 16GB, 16 GB GDDR7, PCIe x16 5.0 "
+                        "R$ 6.599,00 Loja: Kabum https://www.kabum.com.br/produto/123"
+                    ),
+                    "url": "https://t.me/pcbuildwizard/883615",
+                }
+            ]
+        }
+    )
+    service = DailyOfferSyncService(
+        catalog_collection=catalog_collection,
+        entity_type="gpu",
+        daily_offer_repository=repository,
+        telegram_search_service=telegram_search_service,
+        offer_parser=TelegramOfferParser(),
+        candidate_pipeline=build_candidate_pipeline(candidate_collection, offer_collection),
+    )
+
+    result = asyncio.run(service.sync())
+
+    assert result.persisted == 0
+    assert result.skipped == 1
+    assert candidate_collection.documents[0]["entity_type"] == "gpu"
+    assert candidate_collection.documents[0]["status"] == "pending_enrichment"
+    assert candidate_collection.documents[0]["pending_offer"]["store"] == "kabum"
     assert offer_collection.operations == []

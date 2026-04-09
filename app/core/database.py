@@ -58,6 +58,10 @@ def get_daily_offer_collection() -> CollectionProtocol:
     return get_collection("daily_offers")
 
 
+def get_catalog_candidate_collection() -> CollectionProtocol:
+    return get_collection("catalog_candidates")
+
+
 def coerce_document_id(value: str) -> object:
     try:
         return ObjectId(value)

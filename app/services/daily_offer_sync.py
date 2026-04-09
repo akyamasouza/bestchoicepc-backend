@@ -10,6 +10,7 @@ from app.repositories.protocols import (
     DocumentIdCoercer,
     identity_document_id,
 )
+from app.services.catalog_candidate_pipeline import CatalogCandidatePipelineService
 from app.services.entity_matcher import EntityMatcher
 from app.services.telegram_offer_parser import TelegramOfferParser
 
@@ -42,6 +43,7 @@ class DailyOfferSyncService:
         telegram_search_service: TelegramSearchServiceProtocol,
         offer_parser: TelegramOfferParser,
         entity_matcher: EntityMatcher | None = None,
+        candidate_pipeline: CatalogCandidatePipelineService | None = None,
         document_id_coercer: DocumentIdCoercer = identity_document_id,
     ) -> None:
         self.catalog_collection = catalog_collection
@@ -50,6 +52,7 @@ class DailyOfferSyncService:
         self.telegram_search_service = telegram_search_service
         self.offer_parser = offer_parser
         self.entity_matcher = entity_matcher or EntityMatcher()
+        self.candidate_pipeline = candidate_pipeline
         self.document_id_coercer = document_id_coercer
 
     async def sync(self, *, channel: str | None = None, limit: int = 1, object_id: str | None = None) -> DailyOfferSyncResult:
@@ -108,6 +111,14 @@ class DailyOfferSyncService:
                 raw_text=messages[0]["text"],
             )
             if mismatch_reason is not None:
+                if self.candidate_pipeline is not None:
+                    self.candidate_pipeline.detect_from_message(
+                        entity_type=self.entity_type,
+                        catalog_entity_name=entity_name,
+                        catalog_entity_sku=entity_sku,
+                        message=messages[0],
+                        reason=mismatch_reason,
+                    )
                 result.skipped += 1
                 result.errors.append(f"{entity_sku}: {mismatch_reason}")
                 continue

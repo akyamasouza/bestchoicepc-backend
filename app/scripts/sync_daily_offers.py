@@ -6,45 +6,40 @@ import asyncio
 from app.core.database import (
     coerce_document_id,
     close_mongo_client,
-    get_cpu_collection,
+    get_catalog_candidate_collection,
     get_daily_offer_collection,
-    get_gpu_collection,
-    get_motherboard_collection,
-    get_psu_collection,
-    get_ram_collection,
-    get_ssd_collection,
 )
+from app.repositories.catalog_candidate_repository import CatalogCandidateRepository
 from app.repositories.daily_offer_repository import DailyOfferRepository
+from app.services.catalog_candidate_enricher import CatalogCandidateEnricher
+from app.services.catalog_candidate_pipeline import CatalogCandidatePipelineService
 from app.services.daily_offer_sync import DailyOfferSyncService
+from app.services.hardware_registry import get_hardware_entity_config
 from app.services.telegram_offer_parser import TelegramOfferParser
 from app.services.telegram_search import TelegramChannelSearchService
 
 
 def get_catalog_collection(entity_type: str):
-    collections = {
-        "cpu": get_cpu_collection,
-        "gpu": get_gpu_collection,
-        "ssd": get_ssd_collection,
-        "ram": get_ram_collection,
-        "psu": get_psu_collection,
-        "motherboard": get_motherboard_collection,
-    }
-
-    if entity_type in collections:
-        return collections[entity_type]()
-
-    raise RuntimeError(f"Tipo de entidade nao suportado: {entity_type}")
+    return get_hardware_entity_config(entity_type).collection_getter()
 
 
 async def run(entity_type: str = "cpu", channel: str | None = None, limit: int = 1, object_id: str | None = None) -> int:
     telegram_search_service = TelegramChannelSearchService()
     daily_offer_repository = DailyOfferRepository(get_daily_offer_collection())
+    candidate_repository = CatalogCandidateRepository(get_catalog_candidate_collection())
+    candidate_repository.ensure_indexes()
     sync_service = DailyOfferSyncService(
         catalog_collection=get_catalog_collection(entity_type),
         entity_type=entity_type,
         daily_offer_repository=daily_offer_repository,
         telegram_search_service=telegram_search_service,
         offer_parser=TelegramOfferParser(),
+        candidate_pipeline=CatalogCandidatePipelineService(
+            candidate_repository=candidate_repository,
+            daily_offer_repository=daily_offer_repository,
+            offer_parser=TelegramOfferParser(),
+            enricher=CatalogCandidateEnricher(),
+        ),
         document_id_coercer=coerce_document_id,
     )
 
