@@ -7,4 +7,5 @@ pytest==8.3.5
 telethon==1.42.0
 python-socks[asyncio]==2.7.2
 tzdata
+redis==5.0.1
 

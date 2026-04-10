@@ -39,6 +39,26 @@ class Settings(BaseSettings):
         default=".telegram/session",
         validation_alias=AliasChoices("TELEGRAM_SESSION_PATH"),
     )
+    openrouter_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENROUTER_API_KEY"),
+    )
+    openrouter_model: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENROUTER_MODEL"),
+    )
+    openrouter_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("OPENROUTER_ENABLED"),
+    )
+    redis_host: str = Field(
+        default="redis",
+        validation_alias=AliasChoices("REDIS_HOST"),
+    )
+    redis_port: int = Field(
+        default=6379,
+        validation_alias=AliasChoices("REDIS_PORT"),
+    )
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
