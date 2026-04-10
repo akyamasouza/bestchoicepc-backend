@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:8.2.6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+
+  redis:
+    image: redis:8.6.2-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  api:
+    build:
+      context: .
+      target: api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      - MONGO_URI=mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo:27017/bestchoicepc
+      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}
+    volumes:
+      - .:/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  worker-sync:
+    build:
+      context: .
+      target: worker
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      - MONGO_URI=mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo:27017/bestchoicepc
+      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}
+    volumes:
+      - .:/app
+    command: ["python", "-m", "app.workers.sync_worker"]
+
+  worker-enrich:
+    build:
+      context: .
+      target: enricher
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      - MONGO_URI=mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo:27017/bestchoicepc
+      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL}
+    volumes:
+      - .:/app
+    command: ["python", "-m", "app.workers.enrich_worker"]
+
+volumes:
+  mongo_data:
+  redis_data:

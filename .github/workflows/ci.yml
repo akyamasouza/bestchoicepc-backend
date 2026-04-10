@@ -1,0 +1,46 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight UTC
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+    - name: Run tests
+      run: |
+        python -m pytest tests/ -v
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build and push Docker images
+      run: |
+        echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+        docker build -t myapp/api:latest -f Dockerfile --target api .
+        docker build -t myapp/worker-sync:latest -f Dockerfile --target worker .
+        docker build -t myapp/worker-enrich:latest -f Dockerfile --target enricher .
+        docker push myapp/api:latest
+        docker push myapp/worker-sync:latest
+        docker push myapp/worker-enrich:latest
+    - name: Deploy to server
+      run: |
+        # Use SSH or cloud provider CLI to update Docker Compose on server
+        # Example: ssh user@server 'cd /path && docker-compose pull && docker-compose up -d'
+        echo "Deploy step placeholder - configure for your infra"
