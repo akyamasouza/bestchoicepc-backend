@@ -43,8 +43,6 @@ class CatalogCandidateRepository:
             "product_url": product_url,
             "business_date": business_date,
             "source": "telegram",
-            "status": "pending_enrichment",
-            "enrichment_status": "pending",
             "detection_reason": detection_reason,
             "related_catalog_entity_name": related_catalog_entity_name,
             "related_catalog_entity_sku": related_catalog_entity_sku,
@@ -65,6 +63,8 @@ class CatalogCandidateRepository:
                     "entity_type": entity_type,
                     "fingerprint": fingerprint,
                     "first_seen": now,
+                    "status": "pending_enrichment",
+                    "enrichment_status": "pending",
                     "enrichment": {},
                     "canonical_entity_id": None,
                     "canonical_entity_sku": None,
@@ -100,6 +100,12 @@ class CatalogCandidateRepository:
         return self.collection.update_one(
             {"entity_type": entity_type, "fingerprint": fingerprint},
             {"$set": {"enrichment_status": "failed", "enrichment": {"reason": reason}}},
+        )
+
+    def mark_rejected(self, fingerprint: str, entity_type: EntityType, reason: str) -> Any:
+        return self.collection.update_one(
+            {"entity_type": entity_type, "fingerprint": fingerprint},
+            {"$set": {"status": "rejected", "enrichment_status": "failed", "enrichment": {"reason": reason}}},
         )
 
     def mark_promoted(

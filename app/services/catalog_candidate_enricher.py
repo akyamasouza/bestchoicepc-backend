@@ -7,6 +7,7 @@ from typing import Any, Protocol
 import httpx
 
 from app.schemas.catalog_candidate import CatalogCandidate
+from app.services.openrouter_product_normalizer import OpenRouterProductNormalizer, ProductIdentityNormalizerProtocol
 
 
 class HtmlFetcherProtocol(Protocol):
@@ -30,6 +31,14 @@ class CatalogCandidateEnrichmentResult:
 
 
 class CatalogCandidateEnricher:
+    _TERMINAL_ERRORS = {
+        "candidate looks like a compound configuration post",
+        "product page is not a valid catalog page",
+        "candidate already exists canonically",
+        "candidate name still looks like a compound configuration post",
+        "failed to extract product name from product page",
+        "failed to derive canonical sku from product page",
+    }
     _INVALID_PAGE_MARKERS = (
         "captcha",
         "access denied",
@@ -68,12 +77,23 @@ class CatalogCandidateEnricher:
         re.compile(r"\bCM[A-Z0-9\-]{6,}\b", flags=re.IGNORECASE),
     )
 
-    def __init__(self, fetcher: HtmlFetcherProtocol | None = None) -> None:
+    def __init__(
+        self,
+        fetcher: HtmlFetcherProtocol | None = None,
+        normalizer: ProductIdentityNormalizerProtocol | None = None,
+    ) -> None:
         self.fetcher = fetcher or HttpxHtmlFetcher()
+        self.normalizer = normalizer or OpenRouterProductNormalizer()
 
     def enrich(self, candidate: CatalogCandidate) -> CatalogCandidateEnrichmentResult:
         if self._looks_like_compound_post(candidate.raw_text):
             return CatalogCandidateEnrichmentResult(data=None, error="candidate looks like a compound configuration post")
+
+        ai_identity = None
+        if not candidate.product_url and candidate.entity_type in {"cpu", "gpu"}:
+            ai_identity = self._normalize_with_ai(candidate)
+            if ai_identity is not None:
+                return CatalogCandidateEnrichmentResult(data=ai_identity)
 
         if not candidate.product_url:
             return CatalogCandidateEnrichmentResult(data=None, error="candidate does not have product_url")
@@ -82,6 +102,8 @@ class CatalogCandidateEnricher:
             html = self.fetcher.fetch_text(candidate.product_url)
         except Exception as exc:
             return CatalogCandidateEnrichmentResult(data=None, error=f"failed to fetch product page ({exc})")
+
+        ai_metadata = ai_identity.get("ai_normalization") if ai_identity is not None else None
 
         page_title = self._extract_page_title(html)
         if self._looks_like_invalid_page(page_title):
@@ -120,9 +142,58 @@ class CatalogCandidateEnricher:
             "raw_title": candidate.raw_title,
             "page_title": self._strip_noise(page_title) if page_title is not None else None,
         }
+        if canonical_sku is not None:
+            enrichment["canonical_sku"] = canonical_sku
+        if ai_metadata is not None:
+            enrichment["ai_normalization"] = ai_metadata
         entity_data = self._extract_entity_data(candidate.entity_type, html, proposed_name)
         enrichment.update(entity_data)
         return CatalogCandidateEnrichmentResult(data=enrichment)
+
+    @classmethod
+    def is_terminal_error(cls, reason: str | None) -> bool:
+        return bool(reason and reason in cls._TERMINAL_ERRORS)
+
+    def _normalize_with_ai(self, candidate: CatalogCandidate) -> dict[str, Any] | None:
+        try:
+            identity = self.normalizer.normalize(candidate)
+        except Exception:
+            return None
+        if identity is None:
+            return None
+
+        proposed_name = self._clean_candidate_name(identity.proposed_name)
+        proposed_sku = self._normalize_sku(identity.proposed_sku)
+        if proposed_name is None or not proposed_sku:
+            return None
+        if not self._matches_critical_tokens(candidate.raw_text, proposed_name):
+            return None
+
+        related_catalog_sku = self._normalize_sku(candidate.related_catalog_entity_sku)
+        if proposed_sku == related_catalog_sku:
+            return None
+        related_catalog_name = self._normalize_name(candidate.related_catalog_entity_name)
+        if related_catalog_name and self._normalize_name(proposed_name) == related_catalog_name:
+            return None
+
+        canonical_sku = identity.canonical_sku.strip().upper() if identity.canonical_sku else None
+        if canonical_sku is not None and self._normalize_sku(canonical_sku) == related_catalog_sku:
+            return None
+
+        enrichment: dict[str, Any] = {
+            "proposed_name": proposed_name,
+            "proposed_sku": proposed_sku,
+            "raw_title": candidate.raw_title,
+            "product_url": candidate.product_url,
+            "ai_normalization": {
+                "source": identity.source,
+                "model": identity.model,
+                "confidence": identity.confidence,
+            },
+        }
+        if canonical_sku is not None:
+            enrichment["canonical_sku"] = canonical_sku
+        return enrichment
 
     def _resolve_name(self, candidate: CatalogCandidate, page_title: str | None) -> str | None:
         raw_title = self._clean_candidate_name(candidate.raw_title)
@@ -313,6 +384,14 @@ class CatalogCandidateEnricher:
         if not tokens:
             return None
         return tokens[0]
+
+    def _matches_critical_tokens(self, raw_text: str | None, proposed_name: str) -> bool:
+        normalized_raw = self._normalize_name(raw_text)
+        normalized_name = self._normalize_name(proposed_name)
+        for token in ("x3d", "ti", "super", "xt", "xtx", "gre"):
+            if token in normalized_raw and token not in normalized_name:
+                return False
+        return True
 
     @staticmethod
     def _clean_html_text(value: str) -> str:

@@ -59,12 +59,12 @@ class CatalogCandidatePipelineService:
         if self.enricher._looks_like_compound_name(raw_title):
             return False
 
-        proposed_name = self._proposed_name(raw_title)
+        proposed_name = self.enricher._clean_candidate_name(raw_title)
         if proposed_name is None:
             return False
 
-        proposed_sku = self._proposed_sku(proposed_name)
-        if proposed_sku == self._normalize_sku(catalog_entity_sku):
+        proposed_sku = self.enricher._normalize_sku(proposed_name)
+        if proposed_sku == self.enricher._normalize_sku(catalog_entity_sku):
             return False
 
         fingerprint = self._fingerprint(
@@ -102,11 +102,18 @@ class CatalogCandidatePipelineService:
             enrichment_result = self.enricher.enrich(candidate)
             if enrichment_result.data is None:
                 reason = enrichment_result.error or "dados minimos insuficientes para promocao"
-                self.candidate_repository.mark_enrichment_failed(
-                    candidate.fingerprint,
-                    candidate.entity_type,
-                    reason,
-                )
+                if self.enricher.is_terminal_error(reason):
+                    self.candidate_repository.mark_rejected(
+                        candidate.fingerprint,
+                        candidate.entity_type,
+                        reason,
+                    )
+                else:
+                    self.candidate_repository.mark_enrichment_failed(
+                        candidate.fingerprint,
+                        candidate.entity_type,
+                        reason,
+                    )
                 result.errors.append(f"{candidate.entity_type}:{candidate.fingerprint}: {reason}")
                 continue
 
@@ -137,10 +144,27 @@ class CatalogCandidatePipelineService:
         target_collection = catalog_collection or config.collection_getter()
         document = self._build_catalog_document(config=config, enrichment=enrichment)
 
-        existing = target_collection.find_one({"sku": document["sku"]}, {"_id": 1, "sku": 1})
+        duplicate_skus = {
+            str(document["sku"]),
+            self.enricher._normalize_sku(str(document["sku"])),
+        }
+        canonical_sku = enrichment.get("canonical_sku")
+        if canonical_sku is not None:
+            duplicate_skus.add(str(canonical_sku))
+            duplicate_skus.add(self.enricher._normalize_sku(str(canonical_sku)))
+
+        existing = None
+        for duplicate_sku in duplicate_skus:
+            if not duplicate_sku:
+                continue
+            existing = target_collection.find_one({"sku": duplicate_sku}, {"_id": 1, "sku": 1})
+            if existing is not None:
+                break
         if existing is not None:
             result.errors.append(f"{entity_type}:{fingerprint}: candidato ja existe no catalogo canonico")
             return result
+
+        document["sku"] = self.enricher._normalize_sku(str(document["sku"]))
 
         target_collection.update_one({"sku": document["sku"]}, {"$set": document}, upsert=True)
 
@@ -218,28 +242,6 @@ class CatalogCandidatePipelineService:
     @staticmethod
     def _extract_title(raw_text: str) -> str:
         return raw_text.split("R$", 1)[0].strip()
-
-    @classmethod
-    def _proposed_name(cls, raw_title: str) -> str | None:
-        normalized = re.sub(r"\s+", " ", raw_title).strip(" ,-|")
-        if not normalized:
-            return None
-        if not re.search(r"\d", normalized):
-            return None
-        if len(normalized) < 6:
-            return None
-        return normalized
-
-    @staticmethod
-    def _proposed_sku(name: str) -> str:
-        lowered = name.lower()
-        lowered = re.sub(r"[^a-z0-9]+", "-", lowered)
-        lowered = re.sub(r"-{2,}", "-", lowered)
-        return lowered.strip("-")
-
-    @staticmethod
-    def _normalize_sku(value: str) -> str:
-        return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
 
     @staticmethod
     def _fingerprint(*, entity_type: EntityType, proposed_sku: str, telegram_message_url: object) -> str:

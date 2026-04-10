@@ -13,6 +13,7 @@ from app.repositories.catalog_candidate_repository import CatalogCandidateReposi
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.services.catalog_candidate_enricher import CatalogCandidateEnricher
 from app.services.catalog_candidate_pipeline import CatalogCandidatePipelineService
+from app.services.daily_offer_pipeline import DailyOfferPipeline, TelegramSearchStrategy
 from app.services.daily_offer_sync import DailyOfferSyncService
 from app.services.hardware_registry import get_hardware_entity_config
 from app.services.telegram_offer_parser import TelegramOfferParser
@@ -25,26 +26,13 @@ def get_catalog_collection(entity_type: str):
 
 async def run(entity_type: str = "cpu", channel: str | None = None, limit: int = 1, object_id: str | None = None) -> int:
     telegram_search_service = TelegramChannelSearchService()
-    daily_offer_repository = DailyOfferRepository(get_daily_offer_collection())
-    candidate_repository = CatalogCandidateRepository(get_catalog_candidate_collection())
-    candidate_repository.ensure_indexes()
-    sync_service = DailyOfferSyncService(
-        catalog_collection=get_catalog_collection(entity_type),
-        entity_type=entity_type,
-        daily_offer_repository=daily_offer_repository,
-        telegram_search_service=telegram_search_service,
-        offer_parser=TelegramOfferParser(),
-        candidate_pipeline=CatalogCandidatePipelineService(
-            candidate_repository=candidate_repository,
-            daily_offer_repository=daily_offer_repository,
-            offer_parser=TelegramOfferParser(),
-            enricher=CatalogCandidateEnricher(),
-        ),
-        document_id_coercer=coerce_document_id,
-    )
+    search_strategy = TelegramSearchStrategy(telegram_search_service)
+
+    # New pipeline
+    pipeline = DailyOfferPipeline(search_strategy=search_strategy)
 
     try:
-        result = await sync_service.sync(channel=channel, limit=limit, object_id=object_id)
+        result = await pipeline.run(entity_type=entity_type, channel=channel, limit=limit)
     finally:
         await telegram_search_service.close()
 
@@ -52,8 +40,8 @@ async def run(entity_type: str = "cpu", channel: str | None = None, limit: int =
         "Sync concluido. "
         f"processadas={result.processed}, "
         f"encontradas={result.matched}, "
+        f"candidatos_criados={result.candidates_created}, "
         f"persistidas={result.persisted}, "
-        f"ignoradas={result.skipped}, "
         f"erros={len(result.errors)}"
     )
 
