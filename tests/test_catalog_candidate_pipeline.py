@@ -127,9 +127,29 @@ class FakeEnricher:
     def __init__(self, data: dict[str, Any] | None, error: str | None = None) -> None:
         self.data = data
         self.error = error
+        self.base = CatalogCandidatePipelineService(
+            candidate_repository=CatalogCandidateRepository(FakeCollection()),
+            daily_offer_repository=DailyOfferRepository(FakeCollection()),
+            offer_parser=TelegramOfferParser(),
+        ).enricher
 
     def enrich(self, _candidate: Any) -> CatalogCandidateEnrichmentResult:
         return CatalogCandidateEnrichmentResult(data=self.data, error=self.error)
+
+    def _looks_like_compound_post(self, raw_text: str | None) -> bool:
+        return self.base._looks_like_compound_post(raw_text)
+
+    def _looks_like_compound_name(self, value: str | None) -> bool:
+        return self.base._looks_like_compound_name(value)
+
+    def _clean_candidate_name(self, value: str | None) -> str | None:
+        return self.base._clean_candidate_name(value)
+
+    def _normalize_sku(self, value: str | None) -> str:
+        return self.base._normalize_sku(value)
+
+    def is_terminal_error(self, reason: str | None) -> bool:
+        return self.base.is_terminal_error(reason)
 
 
 def build_pipeline(
@@ -170,6 +190,52 @@ def test_detect_from_message_creates_multi_hardware_candidate() -> None:
     assert stored["proposed_name"] == "Placa de Video PNY GeForce RTX 5070 Ti OC 16GB"
     assert stored["status"] == "pending_enrichment"
     assert stored["pending_offer"]["store"] == "kabum"
+
+
+def test_detect_from_message_rejects_compound_configuration_post() -> None:
+    candidate_collection = FakeCollection()
+    daily_offer_collection = FakeCollection()
+    pipeline = build_pipeline(candidate_collection, daily_offer_collection)
+
+    detected = pipeline.detect_from_message(
+        entity_type="cpu",
+        catalog_entity_name="AMD Ryzen 7 9700X",
+        catalog_entity_sku="amd-ryzen-7-9700x",
+        message={
+            "id": 99,
+            "date_iso": "2026-03-25T22:02:51+00:00",
+            "text": "Recomendação de Configuração de PC - Preço Total: R$ 7.000 https://a https://b https://c",
+            "url": "https://t.me/pcbuildwizard/99",
+        },
+        reason="mensagem composta",
+    )
+
+    assert detected is False
+    assert candidate_collection.documents == []
+
+
+def test_detect_from_message_cleans_store_suffix_from_candidate_name() -> None:
+    candidate_collection = FakeCollection()
+    daily_offer_collection = FakeCollection()
+    pipeline = build_pipeline(candidate_collection, daily_offer_collection)
+
+    detected = pipeline.detect_from_message(
+        entity_type="ssd",
+        catalog_entity_name="SSD Adata 1TB",
+        catalog_entity_sku="ssd-adata-1tb",
+        message={
+            "id": 13,
+            "date_iso": "2026-03-25T22:02:51+00:00",
+            "text": "SSD Kingston NV3 1TB NVMe PCIe 4.0 - Kabum R$ 399,90 Loja: Kabum https://www.kabum.com.br/produto/999",
+            "url": "https://t.me/pcbuildwizard/13",
+        },
+        reason="mensagem rejeitada por falta de modelo numerico: 1000",
+    )
+
+    assert detected is True
+    stored = candidate_collection.documents[0]
+    assert stored["proposed_name"] == "SSD Kingston NV3 1TB NVMe PCIe 4.0"
+    assert stored["proposed_sku"] == "ssd-kingston-nv3-1tb-nvme-pcie-4-0"
 
 
 def test_enrich_pending_candidates_marks_candidate_as_enriched() -> None:
@@ -237,7 +303,123 @@ def test_enrich_pending_candidates_marks_failure_when_enricher_fails() -> None:
     assert len(result.errors) == 1
     assert result.errors[0].startswith("ssd:")
     assert result.errors[0].endswith("failed to fetch product page (timeout)")
+    assert candidate_collection.documents[0]["status"] == "pending_enrichment"
     assert candidate_collection.documents[0]["enrichment_status"] == "failed"
+
+
+def test_enrich_pending_candidates_rejects_terminal_failures() -> None:
+    candidate_collection = FakeCollection()
+    daily_offer_collection = FakeCollection()
+    pipeline = build_pipeline(
+        candidate_collection,
+        daily_offer_collection,
+        enricher=FakeEnricher(None, "candidate already exists canonically"),
+    )
+    pipeline.detect_from_message(
+        entity_type="cpu",
+        catalog_entity_name="AMD Ryzen 7 9800X",
+        catalog_entity_sku="amd-ryzen-7-9800x",
+        message={
+            "id": 14,
+            "date_iso": "2026-03-25T22:02:51+00:00",
+            "text": "AMD Ryzen 7 9800X3D R$ 2.799,99 Loja: Amazon https://amazon.com.br/produto/xyz",
+            "url": "https://t.me/pcbuildwizard/14",
+        },
+        reason="mensagem rejeitada por discriminadores conflitantes: x3d",
+    )
+
+    result = pipeline.enrich_pending_candidates(entity_type="cpu")
+
+    assert result.enriched == 0
+    assert result.errors == [f"cpu:{candidate_collection.documents[0]['fingerprint']}: candidate already exists canonically"]
+    assert candidate_collection.documents[0]["status"] == "rejected"
+    assert candidate_collection.documents[0]["enrichment_status"] == "failed"
+
+
+
+def test_detect_from_message_does_not_reopen_failed_candidate() -> None:
+    candidate_collection = FakeCollection()
+    daily_offer_collection = FakeCollection()
+    pipeline = build_pipeline(candidate_collection, daily_offer_collection)
+
+    pipeline.detect_from_message(
+        entity_type="ssd",
+        catalog_entity_name="SSD Adata 1TB",
+        catalog_entity_sku="ssd-adata-1tb",
+        message={
+            "id": 12,
+            "date_iso": "2026-03-25T22:02:51+00:00",
+            "text": "SSD Kingston NV3 1TB R$ 399,90 Loja: Kabum https://www.kabum.com.br/produto/999",
+            "url": "https://t.me/pcbuildwizard/12",
+        },
+        reason="mensagem rejeitada por falta de modelo numerico: 1000",
+    )
+    candidate_collection.documents[0]["status"] = "rejected"
+    candidate_collection.documents[0]["enrichment_status"] = "failed"
+    candidate_collection.documents[0]["enrichment"] = {"reason": "candidate already exists canonically"}
+
+    detected = pipeline.detect_from_message(
+        entity_type="ssd",
+        catalog_entity_name="SSD Adata 1TB",
+        catalog_entity_sku="ssd-adata-1tb",
+        message={
+            "id": 12,
+            "date_iso": "2026-03-25T22:02:51+00:00",
+            "text": "SSD Kingston NV3 1TB R$ 399,90 Loja: Kabum https://www.kabum.com.br/produto/999",
+            "url": "https://t.me/pcbuildwizard/12",
+        },
+        reason="mensagem rejeitada por falta de modelo numerico: 1000",
+    )
+
+    assert detected is True
+    stored = candidate_collection.documents[0]
+    assert stored["status"] == "rejected"
+    assert stored["enrichment_status"] == "failed"
+    assert stored["enrichment"] == {"reason": "candidate already exists canonically"}
+
+
+
+def test_detect_from_message_does_not_reopen_promoted_candidate() -> None:
+    candidate_collection = FakeCollection()
+    daily_offer_collection = FakeCollection()
+    pipeline = build_pipeline(candidate_collection, daily_offer_collection)
+
+    pipeline.detect_from_message(
+        entity_type="ssd",
+        catalog_entity_name="SSD Adata 1TB",
+        catalog_entity_sku="ssd-adata-1tb",
+        message={
+            "id": 12,
+            "date_iso": "2026-03-25T22:02:51+00:00",
+            "text": "SSD Kingston NV3 1TB R$ 399,90 Loja: Kabum https://www.kabum.com.br/produto/999",
+            "url": "https://t.me/pcbuildwizard/12",
+        },
+        reason="mensagem rejeitada por falta de modelo numerico: 1000",
+    )
+    candidate_collection.documents[0]["status"] = "promoted"
+    candidate_collection.documents[0]["enrichment_status"] = "done"
+    candidate_collection.documents[0]["canonical_entity_id"] = "ssd-1"
+    candidate_collection.documents[0]["canonical_entity_sku"] = "ssd-kingston-nv3-1tb"
+
+    detected = pipeline.detect_from_message(
+        entity_type="ssd",
+        catalog_entity_name="SSD Adata 1TB",
+        catalog_entity_sku="ssd-adata-1tb",
+        message={
+            "id": 12,
+            "date_iso": "2026-03-25T22:02:51+00:00",
+            "text": "SSD Kingston NV3 1TB R$ 399,90 Loja: Kabum https://www.kabum.com.br/produto/999",
+            "url": "https://t.me/pcbuildwizard/12",
+        },
+        reason="mensagem rejeitada por falta de modelo numerico: 1000",
+    )
+
+    assert detected is True
+    stored = candidate_collection.documents[0]
+    assert stored["status"] == "promoted"
+    assert stored["enrichment_status"] == "done"
+    assert stored["canonical_entity_id"] == "ssd-1"
+    assert stored["canonical_entity_sku"] == "ssd-kingston-nv3-1tb"
 
 
 def test_promote_candidate_persists_catalog_document_and_offer() -> None:
@@ -284,6 +466,47 @@ def test_promote_candidate_persists_catalog_document_and_offer() -> None:
     assert result.offers_persisted == 1
     assert canonical_collection.documents[0]["sku"] == "ssd-kingston-nv3-1tb-nvme-pcie-4-0"
     assert daily_offer_collection.updates[0][0]["entity_type"] == "ssd"
+
+
+def test_promote_candidate_rejects_existing_canonical_sku() -> None:
+    candidate_collection = FakeCollection()
+    daily_offer_collection = FakeCollection()
+    pipeline = build_pipeline(candidate_collection, daily_offer_collection)
+
+    candidate_collection.documents.append(
+        {
+            "_id": "candidate-dup",
+            "entity_type": "cpu",
+            "fingerprint": "fp-dup",
+            "proposed_name": "AMD Ryzen 7 9800X3D",
+            "proposed_sku": "amd-ryzen-7-9800x3d",
+            "raw_title": "AMD Ryzen 7 9800X3D",
+            "raw_text": "AMD Ryzen 7 9800X3D",
+            "status": "enriched",
+            "enrichment_status": "done",
+            "enrichment": {
+                "proposed_name": "AMD Ryzen 7 9800X3D",
+                "proposed_sku": "amd-ryzen-7-9800x3d",
+                "canonical_sku": "100-100001084WOF",
+                "socket": "AM5",
+            },
+            "first_seen": datetime(2026, 3, 25, tzinfo=UTC).isoformat(),
+            "last_seen": datetime(2026, 3, 25, tzinfo=UTC).isoformat(),
+            "evidence_count": 1,
+        }
+    )
+
+    canonical_collection = FakeCollection()
+    canonical_collection.documents.append({"_id": "cpu-1", "sku": "100-100001084WOF", "name": "AMD Ryzen 7 9800X3D"})
+
+    result = pipeline.promote_candidate(
+        entity_type="cpu",
+        fingerprint="fp-dup",
+        catalog_collection=canonical_collection,
+    )
+
+    assert result.promoted == 0
+    assert result.errors == ["cpu:fp-dup: candidato ja existe no catalogo canonico"]
 
 
 def test_promote_candidate_requires_minimum_fields_for_ram() -> None:
