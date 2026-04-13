@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.core.database import close_mongo_client
+from app.core.database import close_mongo_client, get_database
 from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging, register_request_logging_middleware
 from app.routes.cpus import router as cpus_router
@@ -35,6 +35,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/health/live", tags=["health"])
+def health_live() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/health/ready", tags=["health"])
+def health_ready() -> dict[str, str]:
+    get_database().command("ping")
+    return {"status": "ready"}
+
 
 app.include_router(cpus_router)
 app.include_router(gpus_router)
