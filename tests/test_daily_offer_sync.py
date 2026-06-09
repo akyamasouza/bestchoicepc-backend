@@ -138,11 +138,12 @@ def build_catalog_reader(catalog_collection: FakeCatalogCollection) -> MongoCata
     return MongoCatalogReader({"cpu": catalog_collection, "gpu": catalog_collection})
 
 
-def build_candidate_pipeline(candidate_collection: FakeCandidateCollection, offer_collection: FakeOfferCollection) -> CatalogCandidatePipelineService:
+def build_candidate_pipeline(candidate_collection: FakeCandidateCollection, offer_collection: FakeOfferCollection, catalog_reader: MongoCatalogReader | None = None) -> CatalogCandidatePipelineService:
     repository = DailyOfferRepository(offer_collection)
     return CatalogCandidatePipelineService(
         candidate_repository=CatalogCandidateRepository(candidate_collection),
         daily_offer_repository=repository,
+        catalog_reader=catalog_reader or MongoCatalogReader({}),
         offer_parser=TelegramOfferParser(),
     )
 

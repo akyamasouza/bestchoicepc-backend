@@ -5,10 +5,10 @@ import hashlib
 import re
 from typing import Any
 
+from app.domain.normalization import normalize_sku
+from app.domain.ports import CatalogReader
 from app.repositories.catalog_candidate_repository import CatalogCandidateRepository
 from app.repositories.daily_offer_repository import DailyOfferRepository
-from app.repositories.protocols import CollectionProtocol
-from app.domain.normalization import normalize_sku
 from app.schemas.catalog_candidate import PendingDailyOfferEvidence
 from app.schemas.common import EntityType
 from app.schemas.daily_offer import DailyOffer
@@ -32,11 +32,13 @@ class CatalogCandidatePipelineService:
         *,
         candidate_repository: CatalogCandidateRepository,
         daily_offer_repository: DailyOfferRepository,
+        catalog_reader: CatalogReader,
         offer_parser: TelegramOfferParser,
         enricher: CatalogCandidateEnricher | None = None,
     ) -> None:
         self.candidate_repository = candidate_repository
         self.daily_offer_repository = daily_offer_repository
+        self.catalog_reader = catalog_reader
         self.offer_parser = offer_parser
         self.enricher = enricher or CatalogCandidateEnricher()
 
@@ -128,7 +130,6 @@ class CatalogCandidatePipelineService:
         *,
         entity_type: EntityType,
         fingerprint: str,
-        catalog_collection: CollectionProtocol | None = None,
     ) -> CatalogCandidatePipelineResult:
         result = CatalogCandidatePipelineResult()
         candidate = self.candidate_repository.find_one(entity_type=entity_type, fingerprint=fingerprint)
@@ -142,7 +143,6 @@ class CatalogCandidatePipelineService:
             return result
 
         config = get_hardware_entity_config(entity_type)
-        target_collection = catalog_collection or config.collection_getter()
         document = self._build_catalog_document(config=config, enrichment=enrichment)
 
         duplicate_skus = {
@@ -154,33 +154,34 @@ class CatalogCandidatePipelineService:
             duplicate_skus.add(str(canonical_sku))
             duplicate_skus.add(normalize_sku(str(canonical_sku)))
 
-        existing = None
         for duplicate_sku in duplicate_skus:
             if not duplicate_sku:
                 continue
-            existing = target_collection.find_one({"sku": duplicate_sku}, {"_id": 1, "sku": 1})
+            existing = self.catalog_reader.find_by_sku(entity_type=entity_type, sku=duplicate_sku)
             if existing is not None:
                 break
+        else:
+            existing = None
         if existing is not None:
             result.errors.append(f"{entity_type}:{fingerprint}: candidato ja existe no catalogo canonico")
             return result
 
         document["sku"] = normalize_sku(str(document["sku"]))
 
-        target_collection.update_one({"sku": document["sku"]}, {"$set": document}, upsert=True)
+        self.catalog_reader.upsert_entity(entity_type=entity_type, document=document)
 
-        promoted = target_collection.find_one({"sku": document["sku"]}, {"_id": 1, "sku": 1})
+        promoted = self.catalog_reader.find_by_sku(entity_type=entity_type, sku=document["sku"])
         if promoted is None:
             result.errors.append(f"{entity_type}:{fingerprint}: falha ao localizar item promovido")
             return result
 
         canonical_id = str(promoted["_id"])
-        canonical_sku = str(promoted["sku"])
+        canonical_sku_resolved = str(promoted["sku"])
         self.candidate_repository.mark_promoted(
             fingerprint=fingerprint,
             entity_type=entity_type,
             canonical_entity_id=canonical_id,
-            canonical_entity_sku=canonical_sku,
+            canonical_entity_sku=canonical_sku_resolved,
         )
         result.promoted += 1
 
@@ -190,7 +191,7 @@ class CatalogCandidatePipelineService:
                     business_date=candidate.pending_offer.business_date,
                     entity_type=entity_type,
                     entity_id=canonical_id,
-                    entity_sku=canonical_sku,
+                    entity_sku=canonical_sku_resolved,
                     entity_name=document["name"],
                     store=candidate.pending_offer.store,
                     store_display_name=candidate.pending_offer.store_display_name,

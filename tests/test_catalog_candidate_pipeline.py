@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from app.domain.ports import CatalogReader
 from app.repositories.catalog_candidate_repository import CatalogCandidateRepository
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.services.catalog_candidate_enricher import CatalogCandidateEnrichmentResult
@@ -123,6 +124,33 @@ class FakeCollection:
             document[key] = int(document.get(key, 0)) + int(value)
 
 
+class FakeCatalogReader:
+    """In-memory fake implementing the CatalogReader port for tests."""
+
+    def __init__(self) -> None:
+        self._entities: dict[str, list[dict[str, Any]]] = {}
+
+    def iter_entities(self, *, entity_type: str, query: dict[str, Any] | None = None, projection: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        return self._entities.get(entity_type, [])
+
+    def find_by_sku(self, *, entity_type: str, sku: str) -> dict[str, Any] | None:
+        for doc in self._entities.get(entity_type, []):
+            if doc.get("sku") == sku:
+                return dict(doc)
+        return None
+
+    def upsert_entity(self, *, entity_type: str, document: dict[str, Any]) -> None:
+        sku = document.get("sku")
+        entities = self._entities.setdefault(entity_type, [])
+        for i, doc in enumerate(entities):
+            if doc.get("sku") == sku:
+                document.setdefault("_id", doc.get("_id"))
+                entities[i] = document
+                return
+        document.setdefault("_id", f"gen-{len(entities) + 1}")
+        entities.append(document)
+
+
 class FakeEnricher:
     def __init__(self, data: dict[str, Any] | None, error: str | None = None) -> None:
         self.data = data
@@ -130,6 +158,7 @@ class FakeEnricher:
         self.base = CatalogCandidatePipelineService(
             candidate_repository=CatalogCandidateRepository(FakeCollection()),
             daily_offer_repository=DailyOfferRepository(FakeCollection()),
+            catalog_reader=FakeCatalogReader(),
             offer_parser=TelegramOfferParser(),
         ).enricher
 
@@ -156,11 +185,13 @@ def build_pipeline(
     candidate_collection: FakeCollection,
     daily_offer_collection: FakeCollection,
     *,
+    catalog_reader: FakeCatalogReader | None = None,
     enricher: FakeEnricher | None = None,
 ) -> CatalogCandidatePipelineService:
     return CatalogCandidatePipelineService(
         candidate_repository=CatalogCandidateRepository(candidate_collection),
         daily_offer_repository=DailyOfferRepository(daily_offer_collection),
+        catalog_reader=catalog_reader or FakeCatalogReader(),
         offer_parser=TelegramOfferParser(),
         enricher=enricher,
     )
@@ -336,7 +367,6 @@ def test_enrich_pending_candidates_rejects_terminal_failures() -> None:
     assert candidate_collection.documents[0]["enrichment_status"] == "failed"
 
 
-
 def test_detect_from_message_does_not_reopen_failed_candidate() -> None:
     candidate_collection = FakeCollection()
     daily_offer_collection = FakeCollection()
@@ -376,7 +406,6 @@ def test_detect_from_message_does_not_reopen_failed_candidate() -> None:
     assert stored["status"] == "rejected"
     assert stored["enrichment_status"] == "failed"
     assert stored["enrichment"] == {"reason": "candidate already exists canonically"}
-
 
 
 def test_detect_from_message_does_not_reopen_promoted_candidate() -> None:
@@ -425,9 +454,11 @@ def test_detect_from_message_does_not_reopen_promoted_candidate() -> None:
 def test_promote_candidate_persists_catalog_document_and_offer() -> None:
     candidate_collection = FakeCollection()
     daily_offer_collection = FakeCollection()
+    catalog_reader = FakeCatalogReader()
     pipeline = build_pipeline(
         candidate_collection,
         daily_offer_collection,
+        catalog_reader=catalog_reader,
         enricher=FakeEnricher(
             {
                 "proposed_name": "SSD Kingston NV3 1TB NVMe PCIe 4.0",
@@ -454,24 +485,32 @@ def test_promote_candidate_persists_catalog_document_and_offer() -> None:
     )
     pipeline.enrich_pending_candidates(entity_type="ssd")
 
-    canonical_collection = FakeCollection()
-
     result = pipeline.promote_candidate(
         entity_type="ssd",
         fingerprint=candidate_collection.documents[0]["fingerprint"],
-        catalog_collection=canonical_collection,
     )
 
     assert result.promoted == 1
     assert result.offers_persisted == 1
-    assert canonical_collection.documents[0]["sku"] == "ssd-kingston-nv3-1tb-nvme-pcie-4-0"
+    promoted_doc = catalog_reader.find_by_sku(entity_type="ssd", sku="ssd-kingston-nv3-1tb-nvme-pcie-4-0")
+    assert promoted_doc is not None
+    assert promoted_doc["sku"] == "ssd-kingston-nv3-1tb-nvme-pcie-4-0"
     assert daily_offer_collection.updates[0][0]["entity_type"] == "ssd"
 
 
 def test_promote_candidate_rejects_existing_canonical_sku() -> None:
     candidate_collection = FakeCollection()
     daily_offer_collection = FakeCollection()
-    pipeline = build_pipeline(candidate_collection, daily_offer_collection)
+    catalog_reader = FakeCatalogReader()
+    catalog_reader.upsert_entity(
+        entity_type="cpu",
+        document={"_id": "cpu-1", "sku": "100-100001084WOF", "name": "AMD Ryzen 7 9800X3D"},
+    )
+    pipeline = build_pipeline(
+        candidate_collection,
+        daily_offer_collection,
+        catalog_reader=catalog_reader,
+    )
 
     candidate_collection.documents.append(
         {
@@ -496,13 +535,9 @@ def test_promote_candidate_rejects_existing_canonical_sku() -> None:
         }
     )
 
-    canonical_collection = FakeCollection()
-    canonical_collection.documents.append({"_id": "cpu-1", "sku": "100-100001084WOF", "name": "AMD Ryzen 7 9800X3D"})
-
     result = pipeline.promote_candidate(
         entity_type="cpu",
         fingerprint="fp-dup",
-        catalog_collection=canonical_collection,
     )
 
     assert result.promoted == 0
