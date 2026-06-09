@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from app.schemas.catalog_candidate import CatalogCandidate
-from app.services.catalog_candidate_enricher import CatalogCandidateEnricher
-from app.services.openrouter_product_normalizer import NormalizedProductIdentity
+from app.adapters.ai.enricher import CatalogCandidateEnricher
+from app.adapters.ai.product_normalizer import NormalizedProductIdentity
 
 
 class FakeNormalizer:

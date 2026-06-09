@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.daily_offer_legacy_migrator import DailyOfferLegacyMigrator
+from app.application.daily_offer_legacy_migrator import DailyOfferLegacyMigrator
 
 
 class FakeCursor:

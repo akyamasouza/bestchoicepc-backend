@@ -6,10 +6,10 @@ from app.core.database import close_mongo_client, get_catalog_candidate_collecti
 from app.repositories.catalog_candidate_repository import CatalogCandidateRepository
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.schemas.common import EntityType
-from app.services.catalog_candidate_enricher import CatalogCandidateEnricher
-from app.services.catalog_candidate_pipeline import CatalogCandidatePipelineResult, CatalogCandidatePipelineService
-from app.services.catalog_reader import MongoCatalogReader
-from app.services.telegram_offer_parser import TelegramOfferParser
+from app.adapters.ai.enricher import CatalogCandidateEnricher
+from app.adapters.mongodb.catalog_reader import MongoCatalogReader
+from app.adapters.telegram.parser import TelegramOfferParser
+from app.application.candidate_pipeline import CatalogCandidatePipelineResult, CatalogCandidatePipelineService
 
 _CATALOG_COLLECTIONS: dict[EntityType, object] = {
     "cpu": get_cpu_collection,

@@ -1,5 +1,5 @@
 from app.scripts import enrich_catalog_candidates
-from app.services.catalog_candidate_pipeline import CatalogCandidatePipelineResult
+from app.application.candidate_pipeline import CatalogCandidatePipelineResult
 
 
 class FakePipeline:

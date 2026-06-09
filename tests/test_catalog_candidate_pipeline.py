@@ -6,9 +6,9 @@ from typing import Any
 from app.domain.ports import CatalogReader
 from app.repositories.catalog_candidate_repository import CatalogCandidateRepository
 from app.repositories.daily_offer_repository import DailyOfferRepository
-from app.services.catalog_candidate_enricher import CatalogCandidateEnrichmentResult
-from app.services.catalog_candidate_pipeline import CatalogCandidatePipelineService
-from app.services.telegram_offer_parser import TelegramOfferParser
+from app.adapters.ai.enricher import CatalogCandidateEnrichmentResult
+from app.adapters.telegram.parser import TelegramOfferParser
+from app.application.candidate_pipeline import CatalogCandidatePipelineService
 
 
 class FakeCursor:

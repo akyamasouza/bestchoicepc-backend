@@ -18,8 +18,8 @@ from app.core.database import (
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.schemas.common import EntityType
 from app.domain.entity_matcher import EntityMatcher
-from app.services.telegram_offer_parser import TelegramOfferParser
-from app.services.telegram_topic_router import TelegramTopicRouter
+from app.adapters.telegram.parser import TelegramOfferParser
+from app.adapters.telegram.topic_router import TelegramTopicRouter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("telegram_listener")

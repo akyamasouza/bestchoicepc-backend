@@ -14,10 +14,10 @@ from app.core.database import (
     get_ssd_collection,
 )
 from app.repositories.daily_offer_repository import DailyOfferRepository
-from app.services.catalog_reader import MongoCatalogReader
-from app.services.daily_offer_sync import DailyOfferSyncService
-from app.services.telegram_offer_parser import TelegramOfferParser
-from app.services.telegram_search import TelegramChannelSearchService
+from app.adapters.mongodb.catalog_reader import MongoCatalogReader
+from app.adapters.telegram.parser import TelegramOfferParser
+from app.adapters.telegram.search import TelegramChannelSearchService
+from app.application.daily_offer_sync import DailyOfferSyncService
 
 _CATALOG_COLLECTIONS = {
     "cpu": get_cpu_collection,

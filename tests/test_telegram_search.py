@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services.telegram_search import TelegramChannelSearchService
+from app.adapters.telegram.search import TelegramChannelSearchService
 
 
 def test_normalize_message_creates_expected_payload() -> None:
@@ -128,7 +128,7 @@ def test_create_client_passes_proxy_kwargs(monkeypatch: pytest.MonkeyPatch) -> N
             captured["api_hash"] = api_hash
             captured["kwargs"] = kwargs
 
-    monkeypatch.setattr("app.services.telegram_search.TelegramClient", FakeTelegramClient)
+    monkeypatch.setattr("app.adapters.telegram.search.TelegramClient", FakeTelegramClient)
 
     client = TelegramChannelSearchService._create_client("session-file", 123, "hash")
 
@@ -162,7 +162,7 @@ def test_create_client_without_proxy_passes_no_extra_kwargs(monkeypatch: pytest.
             captured["api_hash"] = api_hash
             captured["kwargs"] = kwargs
 
-    monkeypatch.setattr("app.services.telegram_search.TelegramClient", FakeTelegramClient)
+    monkeypatch.setattr("app.adapters.telegram.search.TelegramClient", FakeTelegramClient)
 
     client = TelegramChannelSearchService._create_client("session-file", 123, "hash")
 

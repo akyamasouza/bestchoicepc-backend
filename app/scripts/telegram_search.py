@@ -5,7 +5,7 @@ import asyncio
 import json
 from typing import Any
 
-from app.services.telegram_search import TelegramChannelSearchService
+from app.adapters.telegram.search import TelegramChannelSearchService
 
 
 def build_parser() -> argparse.ArgumentParser:

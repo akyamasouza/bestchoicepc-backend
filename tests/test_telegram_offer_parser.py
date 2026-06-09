@@ -1,4 +1,4 @@
-from app.services.telegram_offer_parser import TelegramOfferParser
+from app.adapters.telegram.parser import TelegramOfferParser
 
 
 def test_parse_amazon_offer_extracts_expected_fields() -> None:

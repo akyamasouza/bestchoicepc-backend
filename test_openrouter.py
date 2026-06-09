@@ -1,4 +1,4 @@
-from app.services.openrouter_product_normalizer import OpenRouterProductNormalizer
+from app.adapters.ai.product_normalizer import OpenRouterProductNormalizer
 from app.schemas.catalog_candidate import CatalogCandidate
 
 from datetime import datetime

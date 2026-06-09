@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from app.services.telegram_search import TelegramChannelSearchService
+from app.adapters.telegram.search import TelegramChannelSearchService
 
 
 async def run() -> int:

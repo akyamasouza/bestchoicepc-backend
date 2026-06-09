@@ -1,4 +1,4 @@
-from app.services.telegram_topic_router import TelegramTopicRouter
+from app.adapters.telegram.topic_router import TelegramTopicRouter
 
 
 def test_topic_router_maps_hardware_topics_from_forum_names() -> None:

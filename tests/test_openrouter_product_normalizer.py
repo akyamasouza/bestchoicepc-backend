@@ -2,7 +2,7 @@ import json
 
 import httpx
 
-from app.services.openrouter_product_normalizer import OpenRouterProductNormalizer
+from app.adapters.ai.product_normalizer import OpenRouterProductNormalizer
 from tests.test_catalog_candidate_enricher import build_candidate
 
 
@@ -18,9 +18,9 @@ class FakeResponse:
 
 
 def test_normalizer_parses_valid_json(monkeypatch) -> None:
-    monkeypatch.setattr("app.services.openrouter_product_normalizer.settings.openrouter_enabled", True)
-    monkeypatch.setattr("app.services.openrouter_product_normalizer.settings.openrouter_api_key", "key")
-    monkeypatch.setattr("app.services.openrouter_product_normalizer.settings.openrouter_model", "glm-5.1")
+    monkeypatch.setattr("app.adapters.ai.product_normalizer.settings.openrouter_enabled", True)
+    monkeypatch.setattr("app.adapters.ai.product_normalizer.settings.openrouter_api_key", "key")
+    monkeypatch.setattr("app.adapters.ai.product_normalizer.settings.openrouter_model", "glm-5.1")
 
     def fake_post(*_args, **_kwargs):
         return FakeResponse(
@@ -54,9 +54,9 @@ def test_normalizer_parses_valid_json(monkeypatch) -> None:
 
 
 def test_normalizer_returns_none_for_invalid_json(monkeypatch) -> None:
-    monkeypatch.setattr("app.services.openrouter_product_normalizer.settings.openrouter_enabled", True)
-    monkeypatch.setattr("app.services.openrouter_product_normalizer.settings.openrouter_api_key", "key")
-    monkeypatch.setattr("app.services.openrouter_product_normalizer.settings.openrouter_model", "glm-5.1")
+    monkeypatch.setattr("app.adapters.ai.product_normalizer.settings.openrouter_enabled", True)
+    monkeypatch.setattr("app.adapters.ai.product_normalizer.settings.openrouter_api_key", "key")
+    monkeypatch.setattr("app.adapters.ai.product_normalizer.settings.openrouter_model", "glm-5.1")
 
     def fake_post(*_args, **_kwargs):
         return FakeResponse({"choices": [{"message": {"content": "not-json"}}]})
