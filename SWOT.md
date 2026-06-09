@@ -1,151 +1,171 @@
-# Analise SWOT — BestChoice PC Backend
+# Análise SWOT + Plano de Ação 80/20 — BestChoice PC Backend
 
-## Contexto
-
-Backend em FastAPI + MongoDB que cataloga componentes de hardware (CPU, GPU, SSD, RAM, Motherboard, PSU), monitora ofertas de canais do Telegram em tempo real e sugere combinacoes ideais de CPU+GPU com base em perfil de uso, resolucao e orcamento.
+**Data:** 2026-06-09 | **Arquivos .py:** 148 | **Testes:** 46 arquivos | **LOC:** ~10k (app) + ~3k (tests)
 
 ---
 
-## Forcas (Strengths)
+## Diagnóstico Crítico (Antes da SWOT)
 
-### Arquitetura limpa e organizada
+Antes da análise, identifiquei **problemas de integridade** que tornam qualquer plano de expansão prematuro:
 
-- Estrutura bem separada por responsabilidade: `routes/`, `services/`, `repositories/`, `schemas/`, `scripts/`, `core/`.
-- Uso do **Strategy Pattern** nos repositories (`PagedQueryStrategy`, `CandidateQueryStrategy`, `RankingQueryStrategy`), evitando repeticao de codigo de query/paginacao.
-- Injecao de dependencias via `Depends()` do FastAPI, facilitando testes unitarios.
-
-### Motor de matching sofisticado
-
-- `MatchService` implementa scoring multi-criterio ponderado: equilibrio CPU/GPU, fit por resolucao, custo-beneficio, score de mercado (historico de precos), VRAM adequada.
-- Pesos diferenciados por **use_case** (`competitive`, `aaa`, `hybrid`, `value`) e **resolucao** (`1080p`, `1440p`, `4k`), refletindo perfis reais de uso.
-- Sistema de justificativas (reasons) explicado ao usuario final em linguagem natural.
-- Suporte a reaproveitamento de pecas existentes (`owned_cpu_id`, `owned_gpu_id`).
-
-### Pipeline de ingestao de ofertas
-
-- **Duas vias de ingestao**: sync sob demanda (`DailyOfferSyncService`) + listener em tempo real (`telegram_listener.py` via Telethon push events).
-- `EntityMatcher` com tokenizacao inteligente que separa sufixos de modelo (`4070 super` → `4070`, `super`), filtra stopwords e valida discriminadores conflitantes.
-- `TelegramOfferParser` extrai preco, parcelas, loja, URL, historico (menor 90 dias, mediana) com normalizacao BRL e aliases de lojas.
-- Repository com `upsert`Atomic + indices compostos para evitar duplicatas.
-
-### Testing
-
-- Cobertura de testes ampla: 31 arquivos de teste cobrindo todas as entidades, services, parsers, routes, seed scripts e ranking.
-- Uso de `conftest.py` com fixtures reutilizaveis.
-
-### Catelo de dados
-
-- Dados de benchmark reais importados de fontes externas (TechPowerup, Tom's Hardware).
-- Sistema de ranking percentile para CPUs e GPUs com tiers de performance.
+| # | Problema | Severidade |
+|---|----------|-----------|
+| 1 | `CatalogCandidateEnricher` é importado em 3 arquivos mas **não existe** — a classe real é `CandidateEnricher`. Import quebra em runtime. | 🔴 Broken |
+| 2 | Redis está no `docker-compose.yml`, `config.py` e `requirements.txt` mas **zero uso** no código. | 🟡 Peso morto |
+| 3 | Modelos duplicados: `models/domain.py` (dataclasses) **vs** `schemas/` (Pydantic). Duas representações dos mesmos conceitos (`DailyOffer`, `EntityType`, `CandidateStatus`, `PendingDailyOfferEvidence`). | 🔴 Fragilidade |
+| 4 | Dois parsers de Telegram com lógica duplicada: `OfferExtractor` (domain) e `TelegramOfferParser` (schemas). Regex de preço, loja, parcelas repetidos. | 🟡 Duplicação |
+| 5 | Normalização de loja em **3 lugares diferentes** com aliases divergentes: `domain.py`, `offer_extractor.py`, `telegram_offer_parser.py`. | 🔴 Inconsistência |
+| 6 | Dois orquestradores concorrentes: `DailyOfferSyncService` (funcional) e `DailyOfferPipeline` (placeholder async). | 🟡 Confusão |
+| 7 | `FuzzySkuStrategy` sempre retorna `no_match()` — classe morta. | 🟢 Código zumbi |
+| 8 | 14 `DomainEvent` definidos no `domain.py` — **nenhum é disparado** em lugar algum. DDD de fachada. | 🟡 Peso morto |
+| 9 | `TelegramSearchService` (sync wrapper) quebra se chamado dentro do loop do FastAPI — retorna lista vazia silenciosamente. | 🟡 Armadilha |
+| 10 | `EnrichmentStatus` duplicado: Enum no `domain.py` vs `Literal` no `schemas/catalog_candidate.py` com valores diferentes (`in_progress` vs `running`, `completed` vs `done`). | 🔴 Inconsistência |
 
 ---
 
-## Fraquezas (Weaknesses)
+## SWOT — Visão Realista
 
-### Falta de autenticacao e autorizacao
+### Forças (Strengths)
 
-- Nenhuma middleware de auth (API keys, JWT, OAuth). Qualquer cliente externo pode acessar todas as rotas.
-- CORS configurado com `allow_origins=["*"]` — aceita requisiçoes de qualquer origem, o que e inseguro para producao.
+- **Motor de matching sólido**: `MatchService` + `MatchScoringPolicy` + `MatchReasonBuilder` é o núcleo que entrega valor real. Ponderação multi-critério por use-case e resolução funciona.
+- **Pipeline Telegram funcional**: `OfferExtractor` → `EntityMatcher` → `CatalogMatcher` → `DailyOfferRepository` funciona em produção (comandos manuais).
+- **Estrutura de pastas saudável**: `routes/`, `services/`, `repositories/` bem definidos. Separação de responsabilidades visível.
+- **Protocolos para MongoDB**: `CollectionProtocol`, `CursorProtocol` permitem testar sem banco real.
+- **Cobertura de testes extensa**: 46 arquivos de teste.
 
-### Acoplamento direto ao MongoDB
+### Fraquezas (Weaknesses)
 
-- Repositories recebem `Collection` do PyMongo diretamente em vez de uma interface abstrata. Trocar de banco (Postgres, SQLite) exigiria reescrita em todas as camadas.
-- Database module usa `lru_cache` como singleton do `MongoClient` — funcional, mas nao segue o padrao de lifecycle de conexao recomendado (start/end events).
+- **Duplicação conceitual severa**: Domain (dataclass) e Schema (Pydantic) competem. Cada campo novo exige atualização em 2+ lugares. Fonte de bugs de sincronia.
+- **Código morto e inacabado**: `DailyOfferPipeline`, `FuzzySkuStrategy`, Domain Events, `TelegramSyncAdapter`, Workers. Criados com intenção, nunca finalizados.
+- **Complexidade desnecessária**: Para um MVP que faz "catalogar hardware + recomendar combos", há 20 services, 14 scripts, 2 pipelines concorrentes, 8 entidades de catálogo.
+- **Zero segurança operacional**: Sem auth, sem rate limit, CORS wildcard. Implantável apenas em rede privada.
+- **Dependência de IA sem fallback**: Se OpenRouter estiver offline/sem saldo, enriquecimento simplesmente falha. Sem path sem IA.
 
-### `MatchService` com complexidade crescent
+### Oportunidades (Opportunities)
 
-- 650+ linhas com muitos magic numbers (pesos, thresholds, ranges de fit). Embora bem comentados, a manutencao de todas essas constantss e fragil — uma alteracao em `_FINAL_SCORE_WEIGHTS` pode impactar resultados de forma nao intuitiva.
-- O loop nested `for cpu in available_cpus: for gpu in available_gpus` tem complexidade **O(n*m)**, que pode degradar conforme o catalogo cresce.
+- **Consolidar em 1 serviço core**: O valor real está no match CPU+GPU. Todo o resto é suporte.
+- **Cortar 60% do código**: Remover duplicatas, código morto e placeholders reduz superfície de manutenção.
+- **Automatizar com cron (não Docker profiles)**: Um único cron job que roda sync → enriquece → promove em sequência.
+- **Adicionar cache HTTP simples** (`Cache-Control` headers) em vez de Redis — para MVP, caching de 5min no cliente é suficiente.
 
-### Validacao e tratamento de erros
+### Ameaças (Threats)
 
-- Rotas nao possuem tratamento global de excecoes (sem `@app.exception_handler`). Errors nao mapeados retornam 500 generico.
-- `MatchService._normalize_use_case` e `_normalize_resolution` com fallbacks silenciosos (`"value"` e `"1080p"`) — inputs invalidos nao sao rejeitados, mascarados como defaults.
-- `EntityMatcher` nao lida com GPUs que nao tem variantes de sufixo (ex: `RTX 4060` sem `Ti` ou `Super`) de forma potencialmente muito restritiva.
-
-### Data/seed pipeline manual
-
-- Scripts de seed (`seed_cpus.py`, `seed_gpus.py`, etc.) sao executados manualmente via CLI. Nao ha pipeline automatizado de atualizacao do catalogo de hardware.
-- Scripts de build para SSDs, RAMs, PSUs, Motherboards parecem ser one-off — nao ha indicacao de automacao continua.
-
-### Sem logging estruturado
-
-- `main.py` nao configura logging da aplicacao. O listenerTelegram tem logging basico, mas a API em si nao loga requests, latencia, ou errors de forma estruturada.
-
-### Sem rate limiting ou throttling
-
-- Nenhuma protecao contra abuso nas rotas da API. Um cliente pode fazer milhoes de requests no endpoint `/matches` sem qualquer limitacao.
+- **Dependência do Telegram**: Se o canal mudar formato ou cair, o sync para. Sem fonte alternativa de ofertas.
+- **MongoDB como único state**: Sem backup automatizado visível. Perda do volume = perda de todo histórico.
+- **Manutenção insustentável**: Com 148 arquivos e duplicação generalizada, cada feature nova introduz bugs de sincronia. O projeto já mostra sinais de entropia: classes importadas que não existem, status enums divergentes.
 
 ---
 
-## Oportunidades (Opportunities)
+## Plano de Ação 80/20 — Simplificação Radical
 
-### Expansao de entidades
+### Meta: MVP com 60-70 arquivos (cortar ~50%), zero duplicação, 100% funcional
 
-- Adicionar monitores, gabinetes, coolers, water coolers e perifercos ao catalogo, ampliando o escopo de matches para builds completas.
+### 🔴 Fase 1 — Cirurgia de Código Morto (Semana 1)
 
-### Integracao com mais fontes de ofertas
+Estas ações **não alteram comportamento** — apenas removem peso morto.
 
-- Conectar a APIs de afiliados (Kabum, Amazon, Pichau, Terabyte) para alem do Telegram, aumentando o volume de ofertas e a qualidade dos dados de historico de precos.
+| Ação | Arquivos afetados | Ganho |
+|------|-------------------|-------|
+| **Deletar `DailyOfferPipeline`** (async, placeholder) | `daily_offer_pipeline.py` + imports | -1 classe duplicada do sync |
+| **Deletar `FuzzySkuStrategy`** (sempre retorna `no_match`) | `matching_strategies.py` (partial) | Clareza |
+| **Deletar Domain Events não usados** | `domain.py` (linhas 629-700) | -70 linhas |
+| **Deletar `TelegramSearchService`** (sync wrapper quebrado) | `telegram_sync_adapter.py` | -1 footgun |
+| **Deletar Workers** (nunca integrados ao docker) | `workers/enrich_worker.py`, `workers/sync_worker.py` | -2 arquivos |
+| **Deletar `CandidateFactory`** (placeholder) | `daily_offer_pipeline.py` | Morre junto |
+| **Deletar `SearchStrategy`/`TelegramSearchStrategy`** (abstração prematura) | `daily_offer_pipeline.py` | Morre junto |
+| **Remover Redis** do `docker-compose.yml`, `config.py`, `requirements.txt` | 3 arquivos | -1 dependência |
+| **Deletar `kabum_catalog.py`** (script avulso) | 1 arquivo | Clareza |
+| **Remover scripts de migração** já executados (`migrate_daily_offers_entity_sku.py`) | 1 arquivo | Clareza |
 
-### Cache com Redis
+**Resultado esperado:** ~12 arquivos removidos, ~800 linhas eliminadas.
 
-- Implementar cache de respostas para rotas de listagem (CPUs, GPUs, ofertas do dia) e matches, reduzindo carga no MongoDB e diminuindo latencia.
+### 🟡 Fase 2 — Unificação de Modelos (Semana 2)
 
-### Sistema de usuarios e favoritos
+**Problema:** `models/domain.py` (dataclasses) e `schemas/` (Pydantic) definem os mesmos conceitos.
 
-- Autenticacao permitiriam salvar configs de build, historico de matches, alertas de preco e notificacoes quando uma oferta desejada aparecer.
+**Decisão arquitetural radical:** Escolher **UM** sistema de modelos.
 
-### Pipeline de CI/CD
+→ **Recomendação: Ficar só com Pydantic v2.** Motivos:
+1. Já é o sistema de validação do FastAPI (rotas esperam Pydantic)
+2. `model_dump()` → dict para MongoDB é trivial
+3. `model_validate(doc)` → objeto a partir do MongoDB é trivial
+4. Elimina `to_dict()` / `from_dict()` manuais (hoje há ~300 linhas disso no `domain.py`)
 
-- GitHub Actions para rodar testes automaticamente em PRs, linting (ruff, mypy), e deploy automatizado.
+| Ação | Descrição |
+|------|-----------|
+| Migrar `DailyOffer`, `ExtractedOffer`, `CatalogEntity`, `CatalogCandidate`, `MatchResult` para Pydantic em `schemas/` | Centralizar todos os modelos |
+| Mover `EntityType`, `CandidateStatus`, `EnrichmentStatus` para `schemas/common.py` (manter só lá) | Única fonte da verdade |
+| Mover funções utilitárias (`_normalize_sku`, `_normalize_store_name`, `_normalize_product_name`) para `app/core/normalization.py` | Reutilização sem duplicação |
+| Deletar `models/domain.py` | -1 arquivo, -730 linhas |
+| Atualizar todos os imports (services, repositories, routes) para usar `schemas/` | Consistência |
 
-### Documentacao da API
+**Resultado esperado:** Fim da duplicação Domain x Schema. Toda mudança de campo toca 1 arquivo.
 
-- O FastAPI ja gera Swagger automaticamente (`/docs`), mas adicionar exemplos de request/response nos schemas melhoraria a experiencia de consumo da API pelo frontend.
+### 🟢 Fase 3 — Unificação de Parsers (Semana 2-3)
 
-### ML para previsao de precos
+**Problema:** `OfferExtractor` (retorna `ExtractedOffer`) e `TelegramOfferParser` (retorna `DailyOffer`) duplicam regex e normalização.
 
-- O historico de 90 dias armazenado em `DailyOffer` pode alimentar um modelo simples de previsao, sugerindo o melhor momento para comprar.
+| Ação | Descrição |
+|------|-----------|
+| Manter **apenas** `TelegramOfferParser` — ele já é mais completo (lida com affiliate links, timezone, histórico) | Escolher o melhor |
+| Fazer `TelegramOfferParser.parse()` retornar `ExtractedOffer` (intermediário) e adicionar `.to_daily_offer()` quando há match | Unificar pipeline |
+| Deletar `OfferExtractor` | -1 arquivo |
+| Atualizar `DailyOfferSyncService` para usar `TelegramOfferParser` | Consistência |
 
-### Internacionalizacao
+### 🔵 Fase 4 — Pipeline Único (Semana 3)
 
-- Suporte a ofertas em dolares/euros, conversao automatica de moeda, e catalogo expandido para mercados internacionais.
+**Meta:** Um comando que faz tudo em sequência.
+
+```
+python -m app.scripts.daily_pipeline --entity-type cpu --limit 5
+```
+
+Fluxo: Telegram search → Parse → Match catalog → Save DailyOffer or create Candidate → Enrich candidates (AI) → Promote ready candidates
+
+| Ação | Descrição |
+|------|-----------|
+| Consolidar `sync_daily_offers.py` + `enrich_catalog_candidates.py` + `promote_catalog_candidate.py` + `run_catalog_candidate_pipeline.py` em **1 script** | 4 scripts → 1 |
+| Remover `docker-compose` profiles `sync-job`, `enrich-job`, `pipeline-job` — deixar só `api` e `daily-pipeline` | 5 services → 3 |
+| Simplificar `docker-compose.yml` para: `mongo`, `api`, `pipeline-job` (cron) | Clareza operacional |
+
+### 🟣 Fase 5 — Segurança Mínima Viável (Semana 4)
+
+| Ação | Descrição |
+|------|-----------|
+| Adicionar middleware de API Key simples (header `X-API-Key`) | Proteção básica |
+| Restringir CORS para origens específicas (via env var) | `CORS_ORIGINS=localhost,seufrontend.com` |
+| Adicionar slow-rate rate limiting (100 req/min por IP) via `slowapi` | Proteção anti-abuso |
+
+### ⚪ Fase 6 — Robustez (Semana 4+)
+
+| Ação | Descrição |
+|------|-----------|
+| Adicionar `healthcheck` endpoint que verifica MongoDB (já existe `/health/ready`) | ✅ Já feito |
+| Logging estruturado já configurado em `core/logging.py` | ✅ Já feito |
+| Adicionar retry com backoff no OpenRouter (já trata 402/429 mas sem retry) | Resiliência |
+| Adicionar cron real (dentro do container ou via `schedule` library) para rodar pipeline diariamente | Automação |
 
 ---
 
-## Ameacas (Threats)
+## Resultado Final Esperado
 
-### Dependencia critica do Telegram
-
-- Toda a ingestao de ofertas depende de canais nao-oficiais do Telegram se esses canais forem desativados, mudarem de formato ou o Telegram restringir acesso via API, o pipeline de ofertas para completamente.
-- A Telethon requer credenciais de API do Telegram que podem ser revogadas ou ter rate limits impostos.
-
-### Mudancas no formato das mensagens
-
-- O `TelegramOfferParser` usa regex hardcoded para extrair dados. Se o formato das postagens do canal mudar (ex: nova estrutura de texto, sem "Loja:", sem "em X parcelas"), o parser falha silenciosamente ou gera dados incorretos.
-
-### Precos desatualizados
-
-- Ofertas sao snapshot de um momento. Se o sync nao rodar frequentemente ou o listener cair, o frontend pode exibir precos que ja mudaram, gerando frustracao no usuario e perda de confianca.
-
-### Escalabilidade do MongoDB
-
-- Conforme o catalogo e historico de ofertas crescsem, queries nao otimizadas podem degradar. Indices compostos estao presentes, mas consultas de texto e agregacoes complexas podem exigir optimizacoes adicionais.
-
-### Concorrentes diretos
-
-- Ferramentas como **Zoom**, **Buscape**, e **Pelando** ja fazem monitoramento de precos com escala e confiabilidade superiores. Se a proposta de valor (recomendacao de combo CPU+GPU inteligente) nao for claramente diferenciada, a adocao pode ser lenta.
-
-### Legislacao e LGPD
-
-- Se o sistema comecar a coletar dados de usuarios (contas, favoritos, historico), precisara estar em conformidade com a LGPD, exigindo politicas de privacidade, consentimento e mecanismos de exclusao de dados.
+| Métrica | Antes | Depois |
+|---------|-------|--------|
+| Arquivos .py (app) | ~90 | ~50 |
+| Models duplicados | 2 sistemas (domain + schemas) | 1 (schemas) |
+| Parsers de Telegram | 2 | 1 |
+| Orquestradores/Pipelines | 4 | 1 |
+| Dependências (requirements.txt) | 10 | 8 |
+| Docker services | 7 | 3 |
+| Classes importadas que não existem | 1 (`CatalogCandidateEnricher`) | 0 |
+| Normalização de loja duplicada | 3 lugares | 1 (`core/normalization.py`) |
 
 ---
 
-## Resumo Visual
+## O Que NÃO Tocar
 
-| | Positivo | Negativo |
-|---|---|---|
-| **Interno** | **Forcas**: Arquitetura limpa, motor de scoring multi-criterio, ingestao real-time, testes abrangentes | **Fraquezas**: Sem auth, sem rate limit, complexidade acumulada no MatchService, seeds manuais, sem logging estruturado |
-| **Externo** | **Oportunidades**: Mais entidades, cache Redis, ML de precos, CI/CD, APIs de afiliados, sistema de usuarios | **Ameacas**: Dependencia do Telegram, formatos de mensagem volateis, precos desatualizados, concorrentes consolidados |
+- **`MatchService` + `MatchScoringPolicy` + `MatchReasonBuilder`**: Funcionam, entregam valor, são testados. Só simplificar se houver demanda real.
+- **Repositories com Strategy Pattern**: Bom design. Manter.
+- **`EntityMatcher`**: Funciona, é testado, resolve um problema real (filtro de mensagens erradas).
+- **Testes**: Só atualizar imports após unificação de modelos. Não reescrever lógica de teste.
+- **Seed scripts**: Funcionam. Só remover se não forem mais usados.

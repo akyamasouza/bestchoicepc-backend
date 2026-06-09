@@ -51,14 +51,6 @@ class Settings(BaseSettings):
         default=False,
         validation_alias=AliasChoices("OPENROUTER_ENABLED"),
     )
-    redis_host: str = Field(
-        default="redis",
-        validation_alias=AliasChoices("REDIS_HOST"),
-    )
-    redis_port: int = Field(
-        default=6379,
-        validation_alias=AliasChoices("REDIS_PORT"),
-    )
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
