@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from telethon import TelegramClient, functions, types
 
 from app.core.config import settings
+from app.domain.normalization import normalize_whitespace
 
 
 @dataclass(slots=True)
@@ -193,7 +194,7 @@ class TelegramChannelSearchService:
 
     @staticmethod
     def normalize_message(message: Any, channel: str) -> TelegramMessage:
-        text = TelegramChannelSearchService._normalize_text(getattr(message, "message", "") or "")
+        text = normalize_whitespace(getattr(message, "message", "") or "")
         message_id = getattr(message, "id", None)
         date = TelegramChannelSearchService._normalize_date(getattr(message, "date", None))
         channel_handle = channel.lstrip("@")
@@ -208,10 +209,6 @@ class TelegramChannelSearchService:
             forwards=getattr(message, "forwards", None),
             url=f"https://t.me/{channel_handle}/{message_id}" if channel_handle and message_id is not None else None,
         )
-
-    @staticmethod
-    def _normalize_text(text: str) -> str:
-        return " ".join(text.split()).strip()
 
     @staticmethod
     def _excerpt(text: str, limit: int = 200) -> str:

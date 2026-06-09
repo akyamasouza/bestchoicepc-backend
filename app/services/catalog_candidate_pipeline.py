@@ -8,6 +8,7 @@ from typing import Any
 from app.repositories.catalog_candidate_repository import CatalogCandidateRepository
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.repositories.protocols import CollectionProtocol
+from app.domain.normalization import normalize_sku
 from app.schemas.catalog_candidate import PendingDailyOfferEvidence
 from app.schemas.common import EntityType
 from app.schemas.daily_offer import DailyOffer
@@ -63,8 +64,8 @@ class CatalogCandidatePipelineService:
         if proposed_name is None:
             return False
 
-        proposed_sku = self.enricher._normalize_sku(proposed_name)
-        if proposed_sku == self.enricher._normalize_sku(catalog_entity_sku):
+        proposed_sku = normalize_sku(proposed_name)
+        if proposed_sku == normalize_sku(catalog_entity_sku):
             return False
 
         fingerprint = self._fingerprint(
@@ -146,12 +147,12 @@ class CatalogCandidatePipelineService:
 
         duplicate_skus = {
             str(document["sku"]),
-            self.enricher._normalize_sku(str(document["sku"])),
+            normalize_sku(str(document["sku"])),
         }
         canonical_sku = enrichment.get("canonical_sku")
         if canonical_sku is not None:
             duplicate_skus.add(str(canonical_sku))
-            duplicate_skus.add(self.enricher._normalize_sku(str(canonical_sku)))
+            duplicate_skus.add(normalize_sku(str(canonical_sku)))
 
         existing = None
         for duplicate_sku in duplicate_skus:
@@ -164,7 +165,7 @@ class CatalogCandidatePipelineService:
             result.errors.append(f"{entity_type}:{fingerprint}: candidato ja existe no catalogo canonico")
             return result
 
-        document["sku"] = self.enricher._normalize_sku(str(document["sku"]))
+        document["sku"] = normalize_sku(str(document["sku"]))
 
         target_collection.update_one({"sku": document["sku"]}, {"$set": document}, upsert=True)
 

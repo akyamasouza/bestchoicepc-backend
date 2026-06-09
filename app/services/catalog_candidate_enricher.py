@@ -6,6 +6,13 @@ from typing import Any, Protocol
 
 import httpx
 
+from app.domain.normalization import (
+    clean_html_text,
+    normalize_product_name,
+    normalize_sku,
+    slugify,
+    strip_store_suffix,
+)
 from app.schemas.catalog_candidate import CatalogCandidate
 from app.services.openrouter_product_normalizer import OpenRouterProductNormalizer, ProductIdentityNormalizerProtocol
 
@@ -59,10 +66,6 @@ class CatalogCandidateEnricher:
         "youtube.com",
         "────────",
     )
-    _STORE_SUFFIX_PATTERN = re.compile(
-        r"\s*(?:\||-|–)\s*(?:kabum!?|amazon|pichau|terabyte(?:shop)?|waz|fan[aá]ticos por tecnologia).*?$",
-        flags=re.IGNORECASE,
-    )
     _CPU_NAME_PATTERN = re.compile(
         r"((?:AMD\s+Ryzen|Intel\s+Core(?:\s+Ultra)?(?:\s+i[3579])?)\s+[A-Za-z0-9\- ]*?\d{3,5}[A-Za-z]{0,3})",
         flags=re.IGNORECASE,
@@ -110,7 +113,7 @@ class CatalogCandidateEnricher:
             return CatalogCandidateEnrichmentResult(data=None, error="product page is not a valid catalog page")
 
         canonical_sku = self._extract_canonical_sku(page_title or html)
-        related_catalog_sku = self._normalize_sku(candidate.related_catalog_entity_sku)
+        related_catalog_sku = normalize_sku(candidate.related_catalog_entity_sku)
         if canonical_sku is not None and canonical_sku.lower() == related_catalog_sku:
             return CatalogCandidateEnrichmentResult(data=None, error="candidate already exists canonically")
 
@@ -124,15 +127,15 @@ class CatalogCandidateEnricher:
         if self._looks_like_compound_name(proposed_name):
             return CatalogCandidateEnrichmentResult(data=None, error="candidate name still looks like a compound configuration post")
 
-        related_catalog_name = self._normalize_name(candidate.related_catalog_entity_name)
-        if related_catalog_name and self._normalize_name(proposed_name) == related_catalog_name:
+        related_catalog_name = normalize_product_name(candidate.related_catalog_entity_name)
+        if related_catalog_name and normalize_product_name(proposed_name) == related_catalog_name:
             return CatalogCandidateEnrichmentResult(data=None, error="candidate already exists canonically")
 
-        proposed_sku = canonical_sku or self._slugify(proposed_name)
+        proposed_sku = canonical_sku or slugify(proposed_name)
         if not proposed_sku:
             return CatalogCandidateEnrichmentResult(data=None, error="failed to derive canonical sku from product page")
 
-        if self._normalize_sku(proposed_sku) == related_catalog_sku:
+        if normalize_sku(proposed_sku) == related_catalog_sku:
             return CatalogCandidateEnrichmentResult(data=None, error="candidate already exists canonically")
 
         enrichment: dict[str, Any] = {
@@ -163,21 +166,21 @@ class CatalogCandidateEnricher:
             return None
 
         proposed_name = self._clean_candidate_name(identity.proposed_name)
-        proposed_sku = self._normalize_sku(identity.proposed_sku)
+        proposed_sku = normalize_sku(identity.proposed_sku)
         if proposed_name is None or not proposed_sku:
             return None
         if not self._matches_critical_tokens(candidate.raw_text, proposed_name):
             return None
 
-        related_catalog_sku = self._normalize_sku(candidate.related_catalog_entity_sku)
+        related_catalog_sku = normalize_sku(candidate.related_catalog_entity_sku)
         if proposed_sku == related_catalog_sku:
             return None
-        related_catalog_name = self._normalize_name(candidate.related_catalog_entity_name)
-        if related_catalog_name and self._normalize_name(proposed_name) == related_catalog_name:
+        related_catalog_name = normalize_product_name(candidate.related_catalog_entity_name)
+        if related_catalog_name and normalize_product_name(proposed_name) == related_catalog_name:
             return None
 
         canonical_sku = identity.canonical_sku.strip().upper() if identity.canonical_sku else None
-        if canonical_sku is not None and self._normalize_sku(canonical_sku) == related_catalog_sku:
+        if canonical_sku is not None and normalize_sku(canonical_sku) == related_catalog_sku:
             return None
 
         enrichment: dict[str, Any] = {
@@ -259,7 +262,7 @@ class CatalogCandidateEnricher:
             match = re.search(pattern, html, flags=re.IGNORECASE | re.DOTALL)
             if match is None:
                 continue
-            value = CatalogCandidateEnricher._clean_html_text(match.group(1))
+            value = clean_html_text(match.group(1))
             if value:
                 return value
         return None
@@ -271,11 +274,11 @@ class CatalogCandidateEnricher:
 
         cpu_match = self._CPU_NAME_PATTERN.search(cleaned)
         if cpu_match is not None:
-            return self._clean_html_text(cpu_match.group(1))
+            return clean_html_text(cpu_match.group(1))
 
         gpu_match = self._GPU_NAME_PATTERN.search(cleaned)
         if gpu_match is not None:
-            return self._clean_html_text(gpu_match.group(1))
+            return clean_html_text(gpu_match.group(1))
 
         return cleaned
 
@@ -299,29 +302,29 @@ class CatalogCandidateEnricher:
     def _strip_noise(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        cleaned = cls._clean_html_text(value)
-        cleaned = cls._STORE_SUFFIX_PATTERN.sub("", cleaned)
+        cleaned = clean_html_text(value)
+        cleaned = strip_store_suffix(cleaned)
         cleaned = re.sub(r"\s*\|\s*Fan[áa]ticos.*$", "", cleaned, flags=re.IGNORECASE)
         cleaned = cleaned.strip(" -|–")
         return cleaned or None
 
     @classmethod
     def _looks_like_invalid_page(cls, value: str | None) -> bool:
-        normalized = cls._normalize_name(value)
+        normalized = normalize_product_name(value)
         if not normalized:
             return False
         return any(marker in normalized for marker in cls._INVALID_PAGE_MARKERS)
 
     @classmethod
     def _looks_like_compound_name(cls, value: str | None) -> bool:
-        normalized = cls._normalize_name(value)
+        normalized = normalize_product_name(value)
         if not normalized:
             return False
         return any(marker in normalized for marker in cls._COMPOUND_MARKERS)
 
     @classmethod
     def _looks_like_compound_post(cls, raw_text: str | None) -> bool:
-        normalized = cls._normalize_name(raw_text)
+        normalized = normalize_product_name(raw_text)
         if not normalized:
             return False
         if any(marker in normalized for marker in cls._COMPOUND_MARKERS):
@@ -334,7 +337,7 @@ class CatalogCandidateEnricher:
             match = pattern.search(text)
             if match is None:
                 continue
-            return cls._clean_html_text(match.group(0)).upper()
+            return clean_html_text(match.group(0)).upper()
         return None
 
     @staticmethod
@@ -342,7 +345,7 @@ class CatalogCandidateEnricher:
         match = re.search(pattern, text, flags=re.IGNORECASE)
         if match is None:
             return None
-        return CatalogCandidateEnricher._clean_html_text(match.group(1))
+        return clean_html_text(match.group(1))
 
     @staticmethod
     def _extract_int(pattern: str, text: str) -> int | None:
@@ -386,41 +389,9 @@ class CatalogCandidateEnricher:
         return tokens[0]
 
     def _matches_critical_tokens(self, raw_text: str | None, proposed_name: str) -> bool:
-        normalized_raw = self._normalize_name(raw_text)
-        normalized_name = self._normalize_name(proposed_name)
+        normalized_raw = normalize_product_name(raw_text)
+        normalized_name = normalize_product_name(proposed_name)
         for token in ("x3d", "ti", "super", "xt", "xtx", "gre"):
             if token in normalized_raw and token not in normalized_name:
                 return False
         return True
-
-    @staticmethod
-    def _clean_html_text(value: str) -> str:
-        cleaned = re.sub(r"<[^>]+>", " ", value)
-        cleaned = cleaned.replace("&nbsp;", " ").replace("&amp;", "&")
-        cleaned = re.sub(r"\s+", " ", cleaned)
-        return cleaned.strip()
-
-    @classmethod
-    def _normalize_name(cls, value: str | None) -> str:
-        if value is None:
-            return ""
-        normalized = cls._clean_html_text(value).lower()
-        normalized = normalized.replace("ç", "c").replace("ã", "a").replace("á", "a").replace("â", "a")
-        normalized = normalized.replace("é", "e").replace("ê", "e").replace("í", "i")
-        normalized = normalized.replace("ó", "o").replace("ô", "o").replace("ú", "u")
-        normalized = normalized.replace("ª", "a")
-        return normalized
-
-    @classmethod
-    def _normalize_sku(cls, value: str | None) -> str:
-        normalized = cls._normalize_name(value)
-        normalized = re.sub(r"[^a-z0-9]+", "-", normalized)
-        normalized = re.sub(r"-{2,}", "-", normalized)
-        return normalized.strip("-")
-
-    @staticmethod
-    def _slugify(value: str) -> str:
-        lowered = value.lower()
-        lowered = re.sub(r"[^a-z0-9]+", "-", lowered)
-        lowered = re.sub(r"-{2,}", "-", lowered)
-        return lowered.strip("-")

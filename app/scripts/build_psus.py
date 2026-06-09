@@ -11,6 +11,8 @@ from urllib.parse import urljoin
 
 import httpx
 
+from app.domain.normalization import normalize_whitespace, slugify
+
 
 TOP_PSU_URL = "https://www.cybenetics.com/index.php?option=psu-performance-database"
 PERFORMANCE_TABLE_PATH = "code/performance-in.php"
@@ -43,7 +45,7 @@ class _HtmlTableParser(HTMLParser):
 
     def handle_endtag(self, tag: str) -> None:
         if tag in {"td", "th"} and self._inside_cell and self._cell_tag == tag:
-            text = _normalize_whitespace("".join(self._current_cell_text))
+            text = normalize_whitespace("".join(self._current_cell_text))
             self._current_row.append(
                 {
                     "text": text,
@@ -89,7 +91,7 @@ def parse_brand_options(html: str) -> list[tuple[str, str]]:
 
     for value, label in re.findall(r'<option value="([^"]+)">(.*?)</option>', select_match.group(1), re.IGNORECASE | re.DOTALL):
         normalized_value = value.strip()
-        normalized_label = _normalize_whitespace(label)
+        normalized_label = normalize_whitespace(label)
         if normalized_value == "0" or not normalized_value or normalized_value in seen_ids:
             continue
         options.append((normalized_value, normalized_label))
@@ -175,7 +177,7 @@ def parse_performance_table_html(html: str) -> list[dict[str, Any]]:
             continue
 
         name = f"{brand} {model}".strip()
-        sku = _slugify(name)
+        sku = slugify(name)
         if sku in seen_skus:
             continue
 
@@ -298,15 +300,11 @@ def _looks_like_performance_row(row: list[dict[str, Any]]) -> bool:
     return len(row) > 4 and row[0]["tag"] == "td" and _parse_float(row[4]["text"]) is not None
 
 
-def _normalize_whitespace(value: str) -> str:
-    return " ".join(value.replace("\xa0", " ").split()).strip()
-
-
 def _normalize_optional(value: str | None) -> str | None:
     if value is None:
         return None
 
-    normalized = _normalize_whitespace(value)
+    normalized = normalize_whitespace(value)
     return normalized or None
 
 
@@ -314,7 +312,7 @@ def _parse_float(value: str | None) -> float | None:
     if value is None:
         return None
 
-    normalized = _normalize_whitespace(value).replace(",", "")
+    normalized = normalize_whitespace(value).replace(",", "")
     try:
         return float(normalized)
     except ValueError:
@@ -346,10 +344,6 @@ def _parse_atx_version(model: str) -> str | None:
     if match is None:
         return None
     return f"ATX{match.group(1)}"
-
-
-def _slugify(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
 
 
 if __name__ == "__main__":

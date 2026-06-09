@@ -6,6 +6,7 @@ from pathlib import Path
 from pprint import pformat
 from typing import Any
 
+from app.domain.normalization import fix_mojibake, normalize_whitespace
 from app.scripts.kabum_catalog import fetch_kabum_products
 
 
@@ -120,7 +121,7 @@ def parse_kabum_products(products: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 
 def parse_kabum_product(product: dict[str, Any]) -> dict[str, Any] | None:
-    name = _normalize_whitespace(product.get("name") or "")
+    name = fix_mojibake(normalize_whitespace(product.get("name") or ""))
     if not name:
         return None
     if _should_skip_product(name):
@@ -140,7 +141,7 @@ def parse_kabum_product(product: dict[str, Any]) -> dict[str, Any] | None:
     return {
         "name": name,
         "sku": sku,
-        "brand": _normalize_whitespace((product.get("manufacturer") or {}).get("name") or name.split()[0]),
+        "brand": fix_mojibake(normalize_whitespace((product.get("manufacturer") or {}).get("name") or name.split()[0])),
         "cpu_brand": cpu_brand,
         "socket": socket,
         "chipset": chipset,
@@ -199,11 +200,6 @@ def main() -> None:
 
     motherboards = build_motherboards(output_path=args.output, page_limit=args.page_limit)
     print(f"Gerado {args.output} com {len(motherboards)} placa(s)-mae.")
-
-
-def _normalize_whitespace(value: str) -> str:
-    normalized = " ".join(value.replace("\xa0", " ").split()).strip()
-    return _fix_mojibake(normalized)
 
 
 def _extract_sku(name: str) -> str | None:
@@ -301,16 +297,6 @@ def _is_invalid_sku(value: str, socket: str | None) -> bool:
 def _should_skip_product(name: str) -> bool:
     normalized = name.upper()
     return any(token in normalized for token in SKIP_NAME_TOKENS)
-
-
-def _fix_mojibake(value: str) -> str:
-    if not any(token in value for token in ("Ã", "Â", "¢", "Õ")):
-        return value
-    try:
-        fixed = value.encode("latin-1").decode("utf-8")
-    except UnicodeError:
-        return value
-    return fixed
 
 
 if __name__ == "__main__":

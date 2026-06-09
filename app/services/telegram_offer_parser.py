@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import re
-from urllib.parse import parse_qs, unquote, urlparse
 from zoneinfo import ZoneInfo
 
 from app.core.config import settings
+from app.domain.normalization import normalize_store_name, store_from_url
 from app.schemas.daily_offer import DailyOffer
 
 
@@ -43,7 +43,7 @@ class TelegramOfferParser:
             entity_id=entity_id,
             entity_sku=entity_sku,
             entity_name=entity_name,
-            store=self._normalize_store_name(store_display_name),
+            store=normalize_store_name(store_display_name),
             store_display_name=store_display_name,
             price_card=self._parse_price(text),
             installments=self._parse_installments(text),
@@ -66,7 +66,7 @@ class TelegramOfferParser:
             raise ValueError("Could not extract store from Telegram message.")
 
         source_url = url_match.group(0).strip()
-        store = self._store_from_url(source_url)
+        store = store_from_url(source_url)
         if store is None:
             raise ValueError("Could not extract store from Telegram message.")
 
@@ -121,53 +121,5 @@ class TelegramOfferParser:
         return parsed or None
 
     @staticmethod
-    def _normalize_store_name(store: str) -> str:
-        lowered = store.strip().lower()
-        normalized = re.sub(r"[^a-z0-9]+", "", lowered)
-
-        aliases = {
-            "amazon": "amazon",
-            "amazoncombr": "amazon",
-            "kabum": "kabum",
-            "kabumcombr": "kabum",
-            "kabumoficial": "kabum",
-            "pichau": "pichau",
-            "pichaucombr": "pichau",
-            "terabyteshop": "terabyteshop",
-            "terabyteshopcombr": "terabyteshop",
-            "terabyte": "terabyteshop",
-        }
-
-        return aliases.get(normalized, normalized)
-
-    @staticmethod
     def _normalize_brl(value: str) -> float:
         return float(value.replace(".", "").replace(",", "."))
-
-    @classmethod
-    def _store_from_url(cls, url: str) -> str | None:
-        parsed = urlparse(url)
-        host = parsed.netloc.lower()
-        candidates = [host]
-
-        if "awin1.com" in host:
-            query = parse_qs(parsed.query)
-            redirected_url = query.get("ued", [None])[0]
-            if redirected_url is not None:
-                redirected = unquote(redirected_url)
-                redirected_host = urlparse(redirected).netloc.lower()
-                if redirected_host:
-                    candidates.insert(0, redirected_host)
-
-        path = parsed.path.lower()
-        if "amazon.com.br" in path:
-            candidates.append("amazon.com.br")
-
-        for candidate in candidates:
-            candidate = re.sub(r"^www\.", "", candidate)
-            normalized = re.sub(r"[^a-z0-9]+", "", candidate)
-            store = cls._normalize_store_name(normalized)
-            if store in {"amazon", "kabum", "pichau", "terabyteshop"}:
-                return store
-
-        return None

@@ -7,6 +7,7 @@ from pprint import pformat
 from typing import Any
 
 from app.scripts.kabum_catalog import fetch_kabum_products
+from app.domain.normalization import normalize_whitespace
 
 
 KABUM_CATEGORY_URL = "https://www.kabum.com.br/hardware/memoria-ram"
@@ -30,7 +31,7 @@ def parse_kabum_products(products: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 
 def parse_kabum_product(product: dict[str, Any]) -> dict[str, Any] | None:
-    name = _normalize_whitespace(product.get("name") or "")
+    name = normalize_whitespace(product.get("name") or "")
     if not name:
         return None
 
@@ -50,7 +51,7 @@ def parse_kabum_product(product: dict[str, Any]) -> dict[str, Any] | None:
     return {
         "name": name,
         "sku": sku,
-        "brand": _normalize_whitespace((product.get("manufacturer") or {}).get("name") or name.split()[0]),
+        "brand": normalize_whitespace((product.get("manufacturer") or {}).get("name") or name.split()[0]),
         "generation": generation,
         "form_factor": form_factor,
         "capacity_gb": capacity_gb,
@@ -107,10 +108,6 @@ def main() -> None:
 
     rams = build_rams(output_path=args.output, page_limit=args.page_limit)
     print(f"Gerado {args.output} com {len(rams)} memoria(s).")
-
-
-def _normalize_whitespace(value: str) -> str:
-    return " ".join(value.replace("\xa0", " ").split()).strip()
 
 
 def _extract_sku(name: str) -> str | None:

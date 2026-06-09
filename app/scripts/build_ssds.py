@@ -9,6 +9,8 @@ from urllib.parse import urljoin
 
 import httpx
 
+from app.domain.normalization import normalize_whitespace
+
 
 TOP_SSD_URL = "https://ssd-tester.com/top_ssd.php"
 DEFAULT_OUTPUT_PATH = Path("app/data/ssds.py")
@@ -61,7 +63,7 @@ class _TopSsdTableParser(HTMLParser):
 
     def handle_endtag(self, tag: str) -> None:
         if tag in {"td", "th"} and self._inside_cell and self._cell_tag == tag:
-            text = _normalize_whitespace("".join(self._current_cell_text))
+            text = normalize_whitespace("".join(self._current_cell_text))
             self._current_row.append(
                 {
                     "text": text,
@@ -190,10 +192,6 @@ def _looks_like_data_row(row: list[dict[str, Any]]) -> bool:
     return len(row) > 9 and row[0]["tag"] == "td" and _parse_int(row[0]["text"]) is not None
 
 
-def _normalize_whitespace(value: str) -> str:
-    return " ".join(value.replace("\xa0", " ").split()).strip()
-
-
 def _normalize_sku(raw_sku: str | None, fallback_name: str) -> str:
     if raw_sku:
         normalized = raw_sku.replace("Image:", "").strip()
@@ -215,7 +213,7 @@ def _parse_int(value: str | None) -> int | None:
 
 
 def _parse_capacity_gb(value: str) -> int | None:
-    normalized = _normalize_whitespace(value).upper()
+    normalized = normalize_whitespace(value).upper()
     number_text = normalized.split()[0] if normalized else ""
     digits = "".join(character for character in number_text if character.isdigit())
     if not digits:
@@ -228,7 +226,7 @@ def _parse_capacity_gb(value: str) -> int | None:
 
 
 def _parse_dram(value: str) -> bool | None:
-    normalized = _normalize_whitespace(value).lower()
+    normalized = normalize_whitespace(value).lower()
     if "yes" in normalized:
         return True
     if "no" in normalized:
