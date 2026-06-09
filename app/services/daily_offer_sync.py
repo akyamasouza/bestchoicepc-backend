@@ -2,26 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any
 
+from app.domain.ports import CandidateRepository, CatalogReader, DailyOfferRepository as DailyOfferRepositoryPort, TelegramSearchPort
 from app.repositories.daily_offer_repository import DailyOfferRepository
-from app.repositories.protocols import (
-    CollectionProtocol,
-    DocumentIdCoercer,
-    identity_document_id,
-)
+from app.repositories.protocols import DocumentIdCoercer, identity_document_id
 from app.services.catalog_candidate_pipeline import CatalogCandidatePipelineService
 from app.services.entity_matcher import EntityMatcher
 from app.services.telegram_offer_parser import TelegramOfferParser
-
-
-class TelegramSearchServiceProtocol(Protocol):
-    async def search_channel(
-        self,
-        query: str,
-        channel: str | None = None,
-        limit: int = 1,
-    ) -> list[dict[str, Any]]: ...
 
 
 @dataclass(slots=True)
@@ -37,16 +25,16 @@ class DailyOfferSyncService:
     def __init__(
         self,
         *,
-        catalog_collection: CollectionProtocol,
+        catalog_reader: CatalogReader,
         entity_type: str,
         daily_offer_repository: DailyOfferRepository,
-        telegram_search_service: TelegramSearchServiceProtocol,
+        telegram_search_service: TelegramSearchPort,
         offer_parser: TelegramOfferParser,
         entity_matcher: EntityMatcher | None = None,
         candidate_pipeline: CatalogCandidatePipelineService | None = None,
         document_id_coercer: DocumentIdCoercer = identity_document_id,
     ) -> None:
-        self.catalog_collection = catalog_collection
+        self.catalog_reader = catalog_reader
         self.entity_type = entity_type
         self.daily_offer_repository = daily_offer_repository
         self.telegram_search_service = telegram_search_service
@@ -65,7 +53,7 @@ class DailyOfferSyncService:
         if object_id is not None:
             query["_id"] = self.document_id_coercer(object_id)
 
-        for item in self.catalog_collection.find(query, {"sku": 1, "name": 1}).sort("name", 1):
+        for item in self.catalog_reader.iter_entities(entity_type=self.entity_type, query=query, projection={"sku": 1, "name": 1}):
             result.processed += 1
 
             entity_sku = str(item.get("sku") or "").strip()

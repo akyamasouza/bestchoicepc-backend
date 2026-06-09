@@ -6,6 +6,7 @@ from typing import Any
 from app.repositories.catalog_candidate_repository import CatalogCandidateRepository
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.services.catalog_candidate_pipeline import CatalogCandidatePipelineService
+from app.services.catalog_reader import MongoCatalogReader
 from app.services.daily_offer_sync import DailyOfferSyncService
 from app.services.telegram_offer_parser import TelegramOfferParser
 
@@ -128,6 +129,14 @@ class FakeTelegramSearchService:
             raise self.exceptions[query]
         return self.responses.get(query, [])
 
+    async def close(self) -> None:
+        pass
+
+
+def build_catalog_reader(catalog_collection: FakeCatalogCollection) -> MongoCatalogReader:
+    """Wrap a FakeCatalogCollection as a CatalogReader for a given entity type."""
+    return MongoCatalogReader({"cpu": catalog_collection, "gpu": catalog_collection})
+
 
 def build_candidate_pipeline(candidate_collection: FakeCandidateCollection, offer_collection: FakeOfferCollection) -> CatalogCandidatePipelineService:
     repository = DailyOfferRepository(offer_collection)
@@ -166,7 +175,7 @@ def test_sync_persists_one_daily_offer_per_cpu_query() -> None:
         }
     )
     service = DailyOfferSyncService(
-        catalog_collection=catalog_collection,
+        catalog_reader=build_catalog_reader(catalog_collection),
         entity_type="cpu",
         daily_offer_repository=repository,
         telegram_search_service=telegram_search_service,
@@ -226,7 +235,7 @@ def test_sync_collects_parser_errors_and_continues() -> None:
         }
     )
     service = DailyOfferSyncService(
-        catalog_collection=catalog_collection,
+        catalog_reader=build_catalog_reader(catalog_collection),
         entity_type="cpu",
         daily_offer_repository=repository,
         telegram_search_service=telegram_search_service,
@@ -263,7 +272,7 @@ def test_sync_persists_old_offers_when_found() -> None:
         }
     )
     service = DailyOfferSyncService(
-        catalog_collection=catalog_collection,
+        catalog_reader=build_catalog_reader(catalog_collection),
         entity_type="cpu",
         daily_offer_repository=repository,
         telegram_search_service=telegram_search_service,
@@ -306,7 +315,7 @@ def test_sync_collects_search_errors_and_continues() -> None:
     )
     telegram_search_service.exceptions["ryzen 7 9800x3d"] = RuntimeError("429")
     service = DailyOfferSyncService(
-        catalog_collection=catalog_collection,
+        catalog_reader=build_catalog_reader(catalog_collection),
         entity_type="cpu",
         daily_offer_repository=repository,
         telegram_search_service=telegram_search_service,
@@ -340,7 +349,7 @@ def test_sync_persists_gpu_offers_with_gpu_entity_type() -> None:
         }
     )
     service = DailyOfferSyncService(
-        catalog_collection=catalog_collection,
+        catalog_reader=build_catalog_reader(catalog_collection),
         entity_type="gpu",
         daily_offer_repository=repository,
         telegram_search_service=telegram_search_service,
@@ -382,7 +391,7 @@ def test_sync_rejects_gpu_variant_mismatch_before_persisting() -> None:
         }
     )
     service = DailyOfferSyncService(
-        catalog_collection=catalog_collection,
+        catalog_reader=build_catalog_reader(catalog_collection),
         entity_type="gpu",
         daily_offer_repository=repository,
         telegram_search_service=telegram_search_service,
@@ -420,7 +429,7 @@ def test_sync_registers_multi_hardware_candidate_on_identity_mismatch() -> None:
         }
     )
     service = DailyOfferSyncService(
-        catalog_collection=catalog_collection,
+        catalog_reader=build_catalog_reader(catalog_collection),
         entity_type="gpu",
         daily_offer_repository=repository,
         telegram_search_service=telegram_search_service,

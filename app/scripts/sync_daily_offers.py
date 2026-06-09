@@ -3,24 +3,42 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from app.core.database import close_mongo_client, get_daily_offer_collection
+from app.core.database import (
+    close_mongo_client,
+    get_cpu_collection,
+    get_daily_offer_collection,
+    get_gpu_collection,
+    get_motherboard_collection,
+    get_psu_collection,
+    get_ram_collection,
+    get_ssd_collection,
+)
 from app.repositories.daily_offer_repository import DailyOfferRepository
+from app.services.catalog_reader import MongoCatalogReader
 from app.services.daily_offer_sync import DailyOfferSyncService
-from app.services.hardware_registry import get_hardware_entity_config
 from app.services.telegram_offer_parser import TelegramOfferParser
 from app.services.telegram_search import TelegramChannelSearchService
 
-
-def get_catalog_collection(entity_type: str):
-    return get_hardware_entity_config(entity_type).collection_getter()
+_CATALOG_COLLECTIONS = {
+    "cpu": get_cpu_collection,
+    "gpu": get_gpu_collection,
+    "ssd": get_ssd_collection,
+    "ram": get_ram_collection,
+    "psu": get_psu_collection,
+    "motherboard": get_motherboard_collection,
+}
 
 
 async def run(entity_type: str = "cpu", channel: str | None = None, limit: int = 1, object_id: str | None = None) -> int:
     telegram_search_service = TelegramChannelSearchService()
     offer_parser = TelegramOfferParser()
 
+    catalog_reader = MongoCatalogReader(
+        {name: getter() for name, getter in _CATALOG_COLLECTIONS.items()}
+    )
+
     sync_service = DailyOfferSyncService(
-        catalog_collection=get_catalog_collection(entity_type),
+        catalog_reader=catalog_reader,
         entity_type=entity_type,
         daily_offer_repository=DailyOfferRepository(get_daily_offer_collection()),
         telegram_search_service=telegram_search_service,
