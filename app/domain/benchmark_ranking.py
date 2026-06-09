@@ -1,14 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Callable
 
-
-@dataclass(frozen=True, slots=True)
-class BenchmarkRanking:
-    game_score: float
-    game_percentile: float
-    performance_tier: str
+from app.domain.models import BenchmarkRanking
 
 
 class BenchmarkRankingService:

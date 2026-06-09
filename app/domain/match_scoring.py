@@ -1,38 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from math import log
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.domain.match_service import CpuMatchCandidate, GpuMatchCandidate, MatchQuery, OfferSnapshot
-
-
-@dataclass(frozen=True, slots=True)
-class _ResolvedOffer:
-    price: float
-    lowest_price_90d: float | None
-    median_price_90d: float | None
-
-
-@dataclass(frozen=True, slots=True)
-class ScoringBreakdown:
-    cpu_score: float
-    gpu_score: float
-    cpu_soft_cap: float
-    gpu_soft_cap: float
-    cpu_price: float | None
-    gpu_price: float | None
-    pair_price: float | None
-    purchase_price: float | None
-    strength_score: float
-    balance_score: float
-    value_score: float
-    market_score: float
-    resolution_fit_score: float
-    vram_score: float
-    score: float
-    label: str
+from app.domain.models import (
+    CpuMatchCandidate,
+    GpuMatchCandidate,
+    MatchQuery,
+    OfferSnapshot,
+    ScoringBreakdown,
+    _ResolvedOffer,
+)
 
 
 class MatchScoringPolicy:

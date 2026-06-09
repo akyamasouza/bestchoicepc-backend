@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from math import inf
 from typing import Protocol
 
-from app.domain.benchmark_ranking import BenchmarkRanking
+from app.domain.models import BenchmarkRanking
 
 
 @dataclass(frozen=True, slots=True)

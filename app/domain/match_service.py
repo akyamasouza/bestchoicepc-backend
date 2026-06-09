@@ -1,63 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from app.domain.match_reasons import MatchReasonBuilder
 from app.domain.match_scoring import MatchScoringPolicy
-
-
-@dataclass(frozen=True, slots=True)
-class CpuMatchCandidate:
-    id: str
-    name: str
-    ranking_percentile: float | None
-
-
-@dataclass(frozen=True, slots=True)
-class GpuMatchCandidate:
-    id: str
-    name: str
-    ranking_percentile: float | None
-    memory_size_mb: int | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class OfferSnapshot:
-    entity_type: str
-    entity_id: str
-    business_date: str
-    price_card: float
-    lowest_price_90d: float | None = None
-    median_price_90d: float | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class MatchQuery:
-    use_case: str
-    resolution: str
-    budget: float | None = None
-    owned_cpu_id: str | None = None
-    owned_gpu_id: str | None = None
-    limit: int = 10
-
-
-@dataclass(frozen=True, slots=True)
-class MatchComponent:
-    id: str
-    name: str
-    ranking_percentile: float
-    price: float | None
-
-
-@dataclass(frozen=True, slots=True)
-class MatchResult:
-    cpu: MatchComponent
-    gpu: MatchComponent
-    score: float
-    label: str
-    purchase_price: float | None
-    pair_price: float | None
-    reasons: tuple[str, ...]
+from app.domain.models import (
+    CpuMatchCandidate,
+    GpuMatchCandidate,
+    MatchComponent,
+    MatchQuery,
+    MatchResult,
+    OfferSnapshot,
+)
 
 
 class MatchService:

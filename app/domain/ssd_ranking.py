@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.domain.benchmark_ranking import BenchmarkRanking
+from app.domain.models import BenchmarkRanking
 
 
 @dataclass(frozen=True, slots=True)

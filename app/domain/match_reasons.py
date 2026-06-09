@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.domain.match_scoring import ScoringBreakdown
+from app.domain.models import ScoringBreakdown
 
 if TYPE_CHECKING:
-    from app.domain.match_service import CpuMatchCandidate, GpuMatchCandidate, MatchQuery
+    from app.domain.models import CpuMatchCandidate, GpuMatchCandidate, MatchQuery
 
 
 class MatchReasonBuilder:

@@ -21,12 +21,12 @@ from app.schemas.match import (
     MatchListResponse,
     MatchRequest,
 )
-from app.domain.match_service import (
+from app.domain.match_service import MatchService
+from app.domain.models import (
     CpuMatchCandidate,
     GpuMatchCandidate,
     MatchQuery,
     MatchResult,
-    MatchService,
     OfferSnapshot,
 )
 
@@ -181,4 +181,3 @@ def _to_match_item_response(item: MatchResult) -> MatchItemResponse:
         pair_price=item.pair_price,
         reasons=list(item.reasons),
     )
-
