@@ -1,4 +1,4 @@
-from app.services.gpu_ranking import GpuRankingEntry, GpuRankingService, gpu_tier_for_relative_performance
+from app.domain.gpu_ranking import GpuRankingEntry, GpuRankingService, gpu_tier_for_relative_performance
 
 
 def test_gpu_ranking_uses_direct_tomshardware_score_when_available() -> None:

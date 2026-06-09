@@ -1,7 +1,7 @@
 from app.core.database import close_mongo_client, get_psu_collection
 from app.data.psus import PSUS
 from app.repositories.protocols import ASCENDING
-from app.services.psu_ranking import PsuRankingEntry, PsuRankingService
+from app.domain.psu_ranking import PsuRankingEntry, PsuRankingService
 
 
 def seed_psus() -> int:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.benchmark_ranking import BenchmarkRankingService
+from app.domain.benchmark_ranking import BenchmarkRankingService
 
 
 def test_build_rankings_assigns_percentiles_and_tiers() -> None:

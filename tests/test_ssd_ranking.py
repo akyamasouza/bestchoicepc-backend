@@ -1,4 +1,4 @@
-from app.services.ssd_ranking import SsdRankingEntry, SsdRankingService, ssd_tier_for_relative_performance
+from app.domain.ssd_ranking import SsdRankingEntry, SsdRankingService, ssd_tier_for_relative_performance
 
 
 def test_ssd_ranking_normalizes_against_top_score() -> None:

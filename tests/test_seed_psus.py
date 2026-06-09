@@ -1,7 +1,7 @@
 from typing import Any
 
 from app.scripts.seed_psus import seed_psus
-from app.services.psu_ranking import PsuRankingEntry, PsuRankingService
+from app.domain.psu_ranking import PsuRankingEntry, PsuRankingService
 
 
 class FakeResult:

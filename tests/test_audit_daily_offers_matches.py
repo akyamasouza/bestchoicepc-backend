@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.entity_matcher import EntityMatcher
+from app.domain.entity_matcher import EntityMatcher
 
 
 def test_audit_matcher_rejects_canonical_offer_with_wrong_numeric_gpu_model() -> None:

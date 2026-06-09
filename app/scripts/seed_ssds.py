@@ -1,7 +1,7 @@
 from app.core.database import close_mongo_client, get_ssd_collection
 from app.data.ssds import SSDS
 from app.repositories.protocols import ASCENDING
-from app.services.ssd_ranking import SsdRankingEntry, SsdRankingService
+from app.domain.ssd_ranking import SsdRankingEntry, SsdRankingService
 
 
 def seed_ssds() -> int:

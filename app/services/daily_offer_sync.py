@@ -8,7 +8,7 @@ from app.domain.ports import CandidateRepository, CatalogReader, DailyOfferRepos
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.repositories.protocols import DocumentIdCoercer, identity_document_id
 from app.services.catalog_candidate_pipeline import CatalogCandidatePipelineService
-from app.services.entity_matcher import EntityMatcher
+from app.domain.entity_matcher import EntityMatcher
 from app.services.telegram_offer_parser import TelegramOfferParser
 
 

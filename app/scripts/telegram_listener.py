@@ -17,7 +17,7 @@ from app.core.database import (
 )
 from app.repositories.daily_offer_repository import DailyOfferRepository
 from app.schemas.common import EntityType
-from app.services.entity_matcher import EntityMatcher
+from app.domain.entity_matcher import EntityMatcher
 from app.services.telegram_offer_parser import TelegramOfferParser
 from app.services.telegram_topic_router import TelegramTopicRouter
 

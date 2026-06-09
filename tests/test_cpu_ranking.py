@@ -1,4 +1,4 @@
-from app.services.cpu_ranking import CpuRankingEntry, CpuRankingService, cpu_tier_for_relative_performance
+from app.domain.cpu_ranking import CpuRankingEntry, CpuRankingService, cpu_tier_for_relative_performance
 
 
 def test_cpu_ranking_uses_direct_techpowerup_score_when_available() -> None:

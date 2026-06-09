@@ -4,8 +4,8 @@ import argparse
 
 from app.core.database import get_cpu_collection, get_gpu_collection
 from app.repositories.protocols import CollectionProtocol
-from app.services.cpu_ranking import CpuRankingEntry, CpuRankingService
-from app.services.gpu_ranking import GpuRankingEntry, GpuRankingService
+from app.domain.cpu_ranking import CpuRankingEntry, CpuRankingService
+from app.domain.gpu_ranking import GpuRankingEntry, GpuRankingService
 
 
 def build_parser() -> argparse.ArgumentParser:

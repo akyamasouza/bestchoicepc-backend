@@ -1,4 +1,4 @@
-from app.services.psu_ranking import PsuRankingEntry, PsuRankingService, psu_tier_for_relative_performance
+from app.domain.psu_ranking import PsuRankingEntry, PsuRankingService, psu_tier_for_relative_performance
 
 
 def test_psu_ranking_normalizes_against_top_score() -> None:

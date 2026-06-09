@@ -3,7 +3,7 @@ from typing import Any
 from app.data.cpus import CPUS
 from app.data.cpu_techpowerup import resolve_techpowerup_cpu_application_score
 from app.scripts.seed_cpus import seed_cpus
-from app.services.cpu_ranking import CpuRankingEntry, CpuRankingService
+from app.domain.cpu_ranking import CpuRankingEntry, CpuRankingService
 
 
 class FakeResult:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 
 from app.core.database import close_mongo_client, get_daily_offer_collection
-from app.services.entity_matcher import EntityMatcher
+from app.domain.entity_matcher import EntityMatcher
 
 
 def parse_args() -> argparse.Namespace:

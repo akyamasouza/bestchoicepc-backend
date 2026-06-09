@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.entity_matcher import EntityMatcher
+from app.domain.entity_matcher import EntityMatcher
 
 
 def test_accepts_exact_gpu_variant_match() -> None:

@@ -1,4 +1,4 @@
-from app.services.match_service import (
+from app.domain.match_service import (
     CpuMatchCandidate,
     GpuMatchCandidate,
     MatchQuery,

@@ -1,7 +1,7 @@
 from typing import Any
 
 from app.scripts.seed_ssds import seed_ssds
-from app.services.ssd_ranking import SsdRankingEntry, SsdRankingService
+from app.domain.ssd_ranking import SsdRankingEntry, SsdRankingService
 
 
 class FakeResult:

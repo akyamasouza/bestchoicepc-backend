@@ -4,7 +4,7 @@ import asyncio
 from types import SimpleNamespace
 
 from app.scripts.telegram_listener import ReverseMatcher, TelegramForumTopicResolver
-from app.services.entity_matcher import EntityMatcher
+from app.domain.entity_matcher import EntityMatcher
 
 
 class FakeTelegramClient:

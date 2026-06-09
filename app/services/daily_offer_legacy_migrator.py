@@ -5,7 +5,7 @@ from typing import Any
 
 from app.repositories.protocols import CollectionProtocol
 from app.schemas.common import EntityType
-from app.services.entity_matcher import EntityMatcher
+from app.domain.entity_matcher import EntityMatcher
 
 
 @dataclass(slots=True)
